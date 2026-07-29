@@ -17,6 +17,7 @@ async def _load_extension_and_pragmas(aiosqlite_connection: Any) -> None:
     await aiosqlite_connection.enable_load_extension(False)
     await aiosqlite_connection.execute("PRAGMA journal_mode=WAL")
     await aiosqlite_connection.execute("PRAGMA busy_timeout=5000")
+    await aiosqlite_connection.execute("PRAGMA foreign_keys=ON")
 
 
 def _on_connect(dbapi_connection: Any, connection_record: Any) -> None:

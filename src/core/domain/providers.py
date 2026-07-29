@@ -65,3 +65,21 @@ Vector = list[float]
 class EmbeddingProvider(Protocol):
     async def embed_image(self, image: ImageRef) -> Vector: ...
     async def embed_text(self, text: str) -> Vector: ...  # same space, for NL search
+
+
+@dataclass(frozen=True)
+class CaptionResult:
+    """Same generic shape as `QualityResult` (SDD §6.1); the caption text
+    lives in `raw_payload["caption"]`. `confidence` is the mean per-token
+    softmax probability of the greedily-chosen tokens -- a standard proxy
+    for sequence confidence, not a calibrated probability.
+    """
+
+    provider_id: str
+    model_version: str
+    confidence: float
+    raw_payload: dict[str, Any]
+
+
+class CaptionProvider(Protocol):
+    async def caption(self, image: ImageRef) -> CaptionResult: ...

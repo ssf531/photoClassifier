@@ -34,6 +34,12 @@ models" guarantee (SDD §16.4). `ensure_downloaded()` fetches
 enable; `tests/integration/core/test_clip_embedding_real_model.py` runs real inference and
 is skipped automatically when the cache is empty.
 
+The captioning provider (`core/infrastructure/caption_provider.py`) works the same way,
+cached under `<data_dir>/models/vit-gpt2-image-captioning/` and sourced from
+[Xenova/vit-gpt2-image-captioning](https://huggingface.co/Xenova/vit-gpt2-image-captioning)
+(`encoder_model_quantized.onnx`, `decoder_model_quantized.onnx`, `tokenizer.json`); its
+integration test skips the same way when the cache is empty.
+
 ## Run
 
 ```bash

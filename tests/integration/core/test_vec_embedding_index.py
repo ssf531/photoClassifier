@@ -133,3 +133,18 @@ async def test_delete_removes_the_vector(index: SqliteVecEmbeddingIndex) -> None
 
     hits = await index.query(_vector(), vector_space="clip", limit=10)
     assert hits == []
+
+
+async def test_get_returns_none_for_an_unknown_key(index: SqliteVecEmbeddingIndex) -> None:
+    assert await index.get("does-not-exist") is None
+
+
+async def test_get_returns_the_stored_vector(index: SqliteVecEmbeddingIndex) -> None:
+    photo_id = uuid.uuid4()
+    key = f"{photo_id}:clip"
+    vector = _vector(hot_index=2)
+    await index.upsert(vector_key=key, vector_space="clip", photo_id=photo_id, vector=vector)
+
+    stored = await index.get(key)
+
+    assert stored == pytest.approx(vector)

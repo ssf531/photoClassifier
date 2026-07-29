@@ -57,6 +57,15 @@ class SqliteVecEmbeddingIndex:
                 text("DELETE FROM embedding_index WHERE rowid = :rowid"), {"rowid": rowid}
             )
 
+    async def get(self, vector_key: str) -> Vector | None:
+        async with self._read_sessions() as session:
+            result = await session.execute(
+                text("SELECT vec_to_json(embedding) FROM embedding_index WHERE vector_key = :key"),
+                {"key": vector_key},
+            )
+            row = result.first()
+            return json.loads(row[0]) if row is not None else None
+
     async def query(
         self, vector: Vector, *, vector_space: str, limit: int
     ) -> list[VectorSearchHit]:

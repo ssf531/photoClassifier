@@ -30,6 +30,23 @@ class EmbeddingIndex(Protocol):
         self, *, vector_key: str, vector_space: str, photo_id: PhotoId, vector: Vector
     ) -> None: ...
     async def delete(self, vector_key: str) -> None: ...
+    async def get(self, vector_key: str) -> Vector | None: ...
     async def query(
         self, vector: Vector, *, vector_space: str, limit: int
     ) -> list[VectorSearchHit]: ...
+
+
+@dataclass(frozen=True)
+class ScoredPhoto:
+    photo_id: PhotoId
+    score: float
+
+
+class EmbeddingService(Protocol):
+    """Thin wrapper for embedding generation + storage/query (SDD §4.5),
+    kept separate from the general Analysis Pipeline because embeddings have
+    a distinct query pattern (ANN similarity) from other AI results."""
+
+    async def embed(self, photo_id: PhotoId, provider: str) -> None: ...
+    async def similar_to(self, photo_id: PhotoId, k: int) -> list[ScoredPhoto]: ...
+    async def embed_text(self, query: str, provider: str) -> Vector: ...

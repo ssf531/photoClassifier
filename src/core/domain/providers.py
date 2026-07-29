@@ -63,6 +63,13 @@ Vector = list[float]
 
 
 class EmbeddingProvider(Protocol):
+    # provider_id/model_version aren't in SDD §6.1's illustrative snippet,
+    # but embed_image/embed_text return a bare Vector rather than a *Result
+    # DTO, so this is the only place EmbeddingService (SDD §4.5) can get the
+    # identity/version it needs to record on an embedding_ref row.
+    provider_id: str
+    model_version: str
+
     async def embed_image(self, image: ImageRef) -> Vector: ...
     async def embed_text(self, text: str) -> Vector: ...  # same space, for NL search
 

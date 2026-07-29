@@ -1,0 +1,12 @@
+[plugin]
+id = "onnx-clip-embedding"
+name = "CLIP Embedding Provider"
+version = "1.0.0"
+capability = "embedding"
+entry_point = "inproc"
+runtime = "python"
+permissions = ["read:image_bytes"]
+model_source = "bundled"
+
+[compatibility]
+core_api_version = ">=1.0,<2.0"

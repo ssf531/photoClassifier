@@ -1,0 +1,15 @@
+# Photo Intelligence configuration.
+#
+# Copy this file to your config directory as `config.toml` (see the README's
+# "Configuration" section for the resolved path) and uncomment/edit as needed.
+# Every key here is optional; anything left out uses the built-in default.
+# Precedence (lowest to highest): built-in default < this file < environment
+# variable (PHOTO_INTELLIGENCE_<KEY>) < CLI flag.
+
+# library_roots = ["C:/Users/you/Pictures"]
+# log_level = "INFO"
+# thumbnail_cache_max_mb = 2048
+# gpu_execution_provider = "cuda"
+# missing_photo_grace_period_days = 30
+# thumbnail_grid_size_px = 256
+# thumbnail_preview_size_px = 1024

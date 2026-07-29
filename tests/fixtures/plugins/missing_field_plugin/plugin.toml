@@ -1,0 +1,10 @@
+[plugin]
+id = "broken-plugin"
+name = "Broken Plugin"
+capability = "caption"
+entry_point = "inproc"
+runtime = "python"
+model_source = "bundled"
+
+[compatibility]
+core_api_version = ">=1.0,<2.0"

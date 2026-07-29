@@ -1,0 +1,49 @@
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        entry: ruff check
+        language: system
+        types: [python]
+
+      - id: ruff-format
+        name: ruff format --check
+        entry: ruff format --check
+        language: system
+        types: [python]
+
+      - id: mypy
+        name: mypy --strict (src/core)
+        entry: mypy --strict src/core
+        language: system
+        types: [python]
+        pass_filenames: false
+
+      - id: import-linter
+        name: import-linter (layering)
+        entry: lint-imports
+        language: system
+        pass_filenames: false
+        files: ^(src/core/|pyproject\.toml)
+
+      - id: eslint
+        name: eslint (src/ui)
+        entry: npm --prefix src/ui run lint --silent --
+        language: system
+        files: ^src/ui/.*\.(ts|tsx|js)$
+        pass_filenames: false
+
+      - id: tsc
+        name: tsc --noEmit (src/ui)
+        entry: npm --prefix src/ui run typecheck --silent --
+        language: system
+        files: ^src/ui/.*\.(ts|tsx)$
+        pass_filenames: false
+
+      - id: prettier-check
+        name: prettier --check (src/ui)
+        entry: npm --prefix src/ui run format:check --silent --
+        language: system
+        files: ^src/ui/.*\.(ts|tsx|css|html|json)$
+        pass_filenames: false

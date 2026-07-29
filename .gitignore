@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
+
+# Node / UI
+src/ui/node_modules/
+src/ui/dist/
+*.tsbuildinfo
+src/ui/vite.config.js
+src/ui/vite.config.d.ts
+
+# import-linter
+.import_linter_cache/
+
+# Local app data (portable mode) / SQLite
+/data/
+*.db
+*.db-wal
+*.db-shm
+
+# Editors / OS
+.vscode/
+.idea/
+Thumbs.db

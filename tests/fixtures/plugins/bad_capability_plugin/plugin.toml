@@ -1,0 +1,11 @@
+[plugin]
+id = "bad-capability-plugin"
+name = "Bad Capability Plugin"
+version = "1.0.0"
+capability = "not-a-real-capability"
+entry_point = "inproc"
+runtime = "python"
+model_source = "bundled"
+
+[compatibility]
+core_api_version = ">=1.0,<2.0"

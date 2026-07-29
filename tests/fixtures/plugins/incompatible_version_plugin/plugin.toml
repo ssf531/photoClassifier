@@ -1,0 +1,11 @@
+[plugin]
+id = "future-plugin"
+name = "Future Plugin"
+version = "1.0.0"
+capability = "tag"
+entry_point = "inproc"
+runtime = "python"
+model_source = "bundled"
+
+[compatibility]
+core_api_version = ">=99.0,<100.0"

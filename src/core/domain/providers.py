@@ -83,3 +83,28 @@ class CaptionResult:
 
 class CaptionProvider(Protocol):
     async def caption(self, image: ImageRef) -> CaptionResult: ...
+
+
+@dataclass(frozen=True)
+class TagScore:
+    label: str
+    confidence: float
+
+
+@dataclass(frozen=True)
+class TagResult:
+    """Same generic shape as `QualityResult`; the ranked tag list lives in
+    `raw_payload["tags"]`. `confidence` is the top tag's score. Per ADR-0006,
+    tags are derived from CLIP rather than a dedicated model, so `confidence`
+    is a raw cosine similarity against a label's text embedding -- not a
+    calibrated probability.
+    """
+
+    provider_id: str
+    model_version: str
+    confidence: float
+    raw_payload: dict[str, Any]
+
+
+class TagProvider(Protocol):
+    async def tag(self, image: ImageRef) -> TagResult: ...

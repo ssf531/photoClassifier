@@ -41,7 +41,7 @@ where = ["src"]
 include = ["core*"]
 
 [tool.setuptools.package-data]
-core = ["py.typed", "config.toml.example"]
+core = ["py.typed", "config.toml.example", "tag_vocabulary_v1.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

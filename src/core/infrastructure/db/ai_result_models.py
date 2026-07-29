@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import JSON, Boolean, Float, ForeignKey, String, Uuid
+from sqlalchemy import JSON, Boolean, Float, ForeignKey, Index, String, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from core.infrastructure.db.base import HasId, UTCDateTime
@@ -14,6 +14,10 @@ def _utcnow() -> datetime:
 
 class AiResult(HasId):
     __tablename__ = "ai_result"
+    __table_args__ = (
+        Index("ix_ai_result_photo_capability_current", "photo_id", "capability", "is_current"),
+        Index("ix_ai_result_plugin_model_version", "plugin_id", "model_version"),
+    )
 
     photo_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("photo.id"))
     plugin_id: Mapped[str] = mapped_column(String, ForeignKey("plugin.id"))
@@ -27,6 +31,9 @@ class AiResult(HasId):
 
 class EmbeddingRef(HasId):
     __tablename__ = "embedding_ref"
+    __table_args__ = (
+        UniqueConstraint("photo_id", "vector_space", name="uq_embedding_ref_photo_vector_space"),
+    )
 
     photo_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("photo.id"))
     plugin_id: Mapped[str] = mapped_column(String, ForeignKey("plugin.id"))

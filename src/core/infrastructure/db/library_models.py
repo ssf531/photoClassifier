@@ -36,6 +36,7 @@ class Photo(HasId):
         ),
         Index("ix_photo_content_hash", "content_hash"),
         Index("ix_photo_status", "status"),
+        Index("ix_photo_captured_at_local", "captured_at_local"),
     )
 
     library_root_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("library_root.id"))

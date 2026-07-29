@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import JSON, Float, ForeignKey, String, Uuid
+from sqlalchemy import JSON, Float, ForeignKey, Index, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from core.infrastructure.db.base import HasId, UTCDateTime
@@ -25,6 +25,7 @@ class Job(HasId):
 
 class JobItem(HasId):
     __tablename__ = "job_item"
+    __table_args__ = (Index("ix_job_item_job_status", "job_id", "status"),)
 
     job_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("job.id"))
     file_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)

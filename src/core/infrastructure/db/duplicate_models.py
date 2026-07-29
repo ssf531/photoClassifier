@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, Float, ForeignKey, String, UniqueConstraint, Uuid
+from sqlalchemy import Boolean, Float, ForeignKey, Index, String, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from core.infrastructure.db.base import HasId, UTCDateTime
@@ -20,7 +20,10 @@ class DuplicateGroup(HasId):
 
 class DuplicateGroupMember(HasId):
     __tablename__ = "duplicate_group_member"
-    __table_args__ = (UniqueConstraint("group_id", "photo_id"),)
+    __table_args__ = (
+        UniqueConstraint("group_id", "photo_id"),
+        Index("ix_duplicate_group_member_photo_id", "photo_id"),
+    )
 
     group_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("duplicate_group.id"))
     photo_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("photo.id"))

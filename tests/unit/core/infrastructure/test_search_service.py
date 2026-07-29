@@ -186,14 +186,17 @@ async def test_similar_to_mode_requires_reference_photo_id(env: _Env) -> None:
         await env.service.search(SearchQuery(mode="similar_to", reference_photo_id=None))
 
 
-async def test_hybrid_mode_combines_text_and_semantic_branches(env: _Env) -> None:
+async def test_hybrid_mode_combines_text_and_semantic_branches_via_rrf(env: _Env) -> None:
     result = await env.service.search(SearchQuery(mode="hybrid", text="beach", limit=10))
 
-    scored = {r.photo_id: r.score for r in result.results}
-    # photo[1] appears in both branches (1.0 from text + 0.9 from semantic)
-    assert scored[env.photos[1].id] == pytest.approx(1.9)
-    assert env.photos[0].id in scored
-    assert env.photos[2].id in scored
+    # photo[1] ranks #2 in text and #1 in semantic -- appearing in both
+    # branches puts it ahead of photo[0] (#1 in text only) and photo[2]
+    # (#2 in semantic only), which is exactly what RRF is for.
+    assert [r.photo_id for r in result.results] == [
+        env.photos[1].id,
+        env.photos[0].id,
+        env.photos[2].id,
+    ]
 
 
 async def test_unknown_mode_raises(env: _Env) -> None:

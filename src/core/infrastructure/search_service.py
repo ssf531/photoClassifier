@@ -3,7 +3,6 @@ from dataclasses import replace
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from core.domain.library import PhotoId
 from core.domain.search import (
     EmbeddingIndex,
     EmbeddingService,
@@ -14,6 +13,7 @@ from core.domain.search import (
     TextSearchIndex,
 )
 from core.infrastructure.metadata_filters import filter_photo_ids
+from core.infrastructure.rank_fusion import reciprocal_rank_fusion
 
 
 class InvalidSearchQueryError(Exception):
@@ -23,9 +23,11 @@ class InvalidSearchQueryError(Exception):
 class DefaultSearchService:
     """Unifies metadata filters, full-text query, and vector similarity into
     ranked results (SDD §4.6/§7). `hybrid` runs the text and semantic
-    branches concurrently and combines them by summing scores per photo --
-    an interim fusion; TASK-056 replaces it with proper Reciprocal Rank
-    Fusion without changing this router's dispatch structure.
+    branches concurrently, over-fetching each to `limit + offset` with its
+    own offset zeroed, then combines them with Reciprocal Rank Fusion (SDD
+    §7.2) before applying the outer query's offset/limit once to the fused
+    ranking -- offset must apply to the *fused* order, not be baked into
+    each branch's own internal slice.
     """
 
     def __init__(
@@ -101,17 +103,19 @@ class DefaultSearchService:
         if query.text is None:
             raise InvalidSearchQueryError("hybrid mode requires query.text")
 
+        branch_query = replace(query, offset=0, limit=query.limit + query.offset)
         text_results, semantic_results = await asyncio.gather(
-            self._search_text(replace(query, mode="text")),
-            self._search_semantic(replace(query, mode="semantic")),
+            self._search_text(replace(branch_query, mode="text")),
+            self._search_semantic(replace(branch_query, mode="semantic")),
         )
 
-        scores: dict[PhotoId, float] = {}
-        for result in (*text_results.results, *semantic_results.results):
-            scores[result.photo_id] = scores.get(result.photo_id, 0.0) + result.score
-
-        ranked = sorted(scores.items(), key=lambda item: item[1], reverse=True)
-        page = ranked[: query.limit]
+        fused = reciprocal_rank_fusion(
+            [
+                [r.photo_id for r in text_results.results],
+                [r.photo_id for r in semantic_results.results],
+            ]
+        )
+        page = fused[query.offset : query.offset + query.limit]
         return SearchResults([SearchResult(photo_id=pid, score=score) for pid, score in page])
 
     async def _apply_filters(

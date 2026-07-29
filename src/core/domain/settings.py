@@ -37,6 +37,12 @@ def data_dir() -> Path:
     return Path(platformdirs.user_data_dir(APP_NAME, appauthor=False))
 
 
+def models_dir() -> Path:
+    """Local model-weights cache (SDD §6.4/§16.4), under the platform data
+    directory so it moves with `--portable` like everything else."""
+    return data_dir() / "models"
+
+
 def config_file_path() -> Path:
     return config_dir() / "config.toml"
 

@@ -57,3 +57,11 @@ class DuplicateGroupMemberResult:
 class DuplicateGroupResult:
     detection_method: str
     members: list[DuplicateGroupMemberResult]
+
+
+Vector = list[float]
+
+
+class EmbeddingProvider(Protocol):
+    async def embed_image(self, image: ImageRef) -> Vector: ...
+    async def embed_text(self, text: str) -> Vector: ...  # same space, for NL search

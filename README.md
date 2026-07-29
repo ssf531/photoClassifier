@@ -24,6 +24,16 @@ uses `rawpy`/LibRaw, bundled per ADR-0012. HEIC/HEIF is optional (ADR-0012): ins
 `pip install -e ".[heic]"` for it, or leave it out — the app detects its absence at
 startup and shows a placeholder instead of failing (see `core/infrastructure/heic_support.py`).
 
+The CLIP embedding provider (`core/infrastructure/clip_embedding_provider.py`) needs its
+ONNX weights + tokenizer in the local model cache (`core/domain/settings.py:models_dir()`,
+under `<data_dir>/models/clip-vit-base-patch32/`) before it will run; without them it
+raises `ClipModelUnavailableError` rather than failing to import, per the "works with zero
+models" guarantee (SDD §16.4). `ensure_downloaded()` fetches
+`vision_model_quantized.onnx`, `text_model_quantized.onnx`, and `tokenizer.json` from
+[Xenova/clip-vit-base-patch32](https://huggingface.co/Xenova/clip-vit-base-patch32) on first
+enable; `tests/integration/core/test_clip_embedding_real_model.py` runs real inference and
+is skipped automatically when the cache is empty.
+
 ## Run
 
 ```bash

@@ -1,4 +1,5 @@
 import uuid
+from collections.abc import Sequence
 
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -16,11 +17,14 @@ async def filter_photo_ids(
     *,
     limit: int,
     offset: int,
+    candidate_ids: Sequence[PhotoId] | None = None,
 ) -> list[PhotoId]:
     """Metadata hard filters (SDD §7.2): date range, camera model, rating
     threshold, and GPS bounding box, combined with AND semantics. Each
     filter is applied only when set, so an all-`None` `MetadataFilters`
-    returns the (paginated) full photo set.
+    returns the (paginated) full photo set. `candidate_ids`, when given,
+    restricts to that set first -- e.g. post-filtering an already-bounded
+    text/semantic result set without an unbounded intermediate fetch.
     """
     async with read_sessions() as session:
         query = (
@@ -28,6 +32,9 @@ async def filter_photo_ids(
             .outerjoin(Metadata, Metadata.photo_id == Photo.id)
             .outerjoin(UserData, UserData.photo_id == Photo.id)
         )
+
+        if candidate_ids is not None:
+            query = query.where(Photo.id.in_(candidate_ids))
 
         if filters.date_range is not None:
             if filters.date_range.start is not None:

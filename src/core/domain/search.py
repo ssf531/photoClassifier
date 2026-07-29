@@ -1,6 +1,6 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Protocol
+from typing import Literal, Protocol
 
 from core.domain.library import PhotoId
 from core.domain.providers import Vector
@@ -78,3 +78,37 @@ class MetadataFilters:
     camera_model: str | None = None
     min_rating: int | None = None
     gps_bbox: GpsBoundingBox | None = None
+
+
+SearchMode = Literal["metadata", "text", "semantic", "hybrid", "similar_to"]
+
+
+@dataclass(frozen=True)
+class SearchQuery:
+    """Unifies all search modes behind one contract (SDD §7.1)."""
+
+    text: str | None = None
+    filters: MetadataFilters | None = None
+    mode: SearchMode = "hybrid"
+    reference_photo_id: PhotoId | None = None
+    limit: int = 100
+    offset: int = 0
+
+
+@dataclass(frozen=True)
+class SearchResult:
+    photo_id: PhotoId
+    score: float
+
+
+@dataclass(frozen=True)
+class SearchResults:
+    results: list[SearchResult] = field(default_factory=list)
+
+
+class SearchService(Protocol):
+    # SDD §4.6 also lists index_photo(photo_id) for incremental index
+    # maintenance; omitted here since its v1 semantics aren't decided yet
+    # (FTS5 already syncs via triggers, and EmbeddingService.embed() already
+    # handles embeddings directly) -- add it when TASK-059 needs it.
+    async def search(self, query: SearchQuery) -> SearchResults: ...

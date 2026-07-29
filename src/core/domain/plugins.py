@@ -18,6 +18,18 @@ class ModelSource(str, Enum):  # noqa: UP042 -- kept pre-StrEnum pending broader
     USER_SUPPLIED = "user_supplied"
 
 
+class AvailabilityStatus(str, Enum):  # noqa: UP042 -- kept pre-StrEnum pending broader migration
+    AVAILABLE = "available"
+    UNAVAILABLE = "unavailable"
+
+
+class CapabilityAvailability(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: AvailabilityStatus
+    reason: str | None = None
+
+
 class PluginCompatibility(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -35,4 +47,5 @@ class PluginManifest(BaseModel):
     runtime: str
     permissions: list[str] = Field(default_factory=list)
     model_source: ModelSource
+    model_filename: str | None = None
     compatibility: PluginCompatibility

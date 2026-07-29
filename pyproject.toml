@@ -24,6 +24,7 @@ dependencies = [
     "xxhash>=3.4",
     "Pillow>=10.3",
     "rawpy>=0.19",
+    "numpy>=1.26",
 ]
 
 [project.optional-dependencies]

@@ -7,6 +7,7 @@ import pytest
 from core.domain.scheduler import JobSpec, JobStatus
 from core.infrastructure.db.base import Base
 from core.infrastructure.db.engine import create_engine, create_session_factory
+from core.infrastructure.db.job_models import Job
 from core.infrastructure.db.write_connection import WriteConnection
 from core.infrastructure.scheduler import (
     InProcessTaskScheduler,
@@ -91,3 +92,30 @@ async def test_cancel_stops_remaining_items(scheduler: InProcessTaskScheduler) -
     assert events[-1].status == JobStatus.CANCELLED
     items = await scheduler._item_repo.list(limit=2000, offset=0)
     assert len(items) < 1000
+
+
+async def test_resume_incomplete_jobs_reruns_a_job_left_running_by_a_crash(
+    scheduler: InProcessTaskScheduler,
+) -> None:
+    # Simulate a crash: a `job` row stuck in RUNNING with no in-memory task
+    # behind it (never went through enqueue() in this process).
+    stale_job = await scheduler._job_repo.create(
+        Job(job_type="noop", status=JobStatus.RUNNING.value, progress_pct=40.0, params={})
+    )
+
+    await scheduler.resume_incomplete_jobs()
+    events = await _collect_until_terminal(scheduler, stale_job.id)
+
+    assert events[-1].status == JobStatus.COMPLETED
+
+
+async def test_resume_incomplete_jobs_is_a_noop_when_nothing_is_running(
+    scheduler: InProcessTaskScheduler,
+) -> None:
+    job_id = await scheduler.enqueue(JobSpec(job_type="noop", params={"item_count": 1}))
+    await _collect_until_terminal(scheduler, job_id)  # let it finish before resuming
+
+    await scheduler.resume_incomplete_jobs()  # must not raise or duplicate anything
+
+    jobs = await scheduler._job_repo.list(limit=10, offset=0)
+    assert len(jobs) == 1

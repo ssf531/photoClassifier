@@ -1,6 +1,9 @@
 import asyncio
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
+from typing import Any
+
+from sqlalchemy import select
 
 from core.domain.scheduler import JobID, JobProgress, JobSpec, JobStatus
 from core.infrastructure.db.job_models import Job, JobItem
@@ -10,9 +13,31 @@ from core.infrastructure.db.repository import SqlAlchemyRepository
 class JobRepository(SqlAlchemyRepository[Job]):
     model = Job
 
+    async def list_by_status(self, status: JobStatus, *, limit: int, offset: int) -> list[Job]:
+        async with self._read_sessions() as session:
+            result = await session.execute(
+                select(Job)
+                .where(Job.status == status.value)
+                .order_by(Job.id)
+                .limit(limit)
+                .offset(offset)
+            )
+            return list(result.scalars().all())
+
 
 class JobItemRepository(SqlAlchemyRepository[JobItem]):
     model = JobItem
+
+    async def list_by_job(self, job_id: JobID, *, limit: int, offset: int) -> list[JobItem]:
+        async with self._read_sessions() as session:
+            result = await session.execute(
+                select(JobItem)
+                .where(JobItem.job_id == job_id)
+                .order_by(JobItem.id)
+                .limit(limit)
+                .offset(offset)
+            )
+            return list(result.scalars().all())
 
 
 class JobContext:
@@ -74,12 +99,24 @@ class InProcessTaskScheduler:
                 params=job.params,
             )
         )
-        job_id = record.id
+        self._start(record.id, job.job_type, job.params)
+        return record.id
+
+    async def resume_incomplete_jobs(self) -> None:
+        """Re-invoke any job an unclean shutdown left in RUNNING state (SDD
+        §11.2). Safe to call unconditionally at startup even if nothing
+        crashed: a handler that finds every item already completed (via its
+        own job_item bookkeeping) simply finishes immediately.
+        """
+        stale_jobs = await self._job_repo.list_by_status(JobStatus.RUNNING, limit=1000, offset=0)
+        for job in stale_jobs:
+            self._start(job.id, job.job_type, job.params)
+
+    def _start(self, job_id: JobID, job_type: str, params: dict[str, Any]) -> None:
         self._cancel_events[job_id] = asyncio.Event()
-        task = asyncio.create_task(self._run(job_id, job))
+        task = asyncio.create_task(self._run(job_id, job_type, params))
         self._running_tasks.add(task)
         task.add_done_callback(self._running_tasks.discard)
-        return job_id
 
     async def cancel(self, job_id: JobID) -> None:
         event = self._cancel_events.get(job_id)
@@ -118,8 +155,8 @@ class InProcessTaskScheduler:
             )
         )
 
-    async def _run(self, job_id: JobID, job: JobSpec) -> None:
-        handler = self._handlers.get(job.job_type)
+    async def _run(self, job_id: JobID, job_type: str, params: dict[str, Any]) -> None:
+        handler = self._handlers.get(job_type)
         if handler is None:
             await self._set_status(job_id, JobStatus.FAILED, 0.0)
             return
@@ -130,7 +167,7 @@ class InProcessTaskScheduler:
         async def report_progress(pct: float) -> None:
             await self._set_status(job_id, JobStatus.RUNNING, pct)
 
-        ctx = JobContext(job_id, job.params, cancel_event, self._item_repo, report_progress)
+        ctx = JobContext(job_id, params, cancel_event, self._item_repo, report_progress)
         try:
             await handler(ctx)
         except Exception:

@@ -20,6 +20,16 @@ class AiResultRepository(SqlAlchemyRepository[AiResult]):
             )
             return list(result.scalars().all())
 
+    async def list_all_versions_by_photo(self, photo_id: uuid.UUID) -> list[AiResult]:
+        """Every version ever recorded for a photo, current or superseded
+        (SDD §5.4) -- e.g. to confirm a resumed job didn't reprocess an
+        already-completed item, which would show up as a second row here."""
+        async with self._read_sessions() as session:
+            result = await session.execute(
+                select(AiResult).where(AiResult.photo_id == photo_id).order_by(AiResult.id)
+            )
+            return list(result.scalars().all())
+
     async def record_result(
         self,
         *,

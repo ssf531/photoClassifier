@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -29,3 +30,30 @@ class QualityResult:
 
 class QualityProvider(Protocol):
     async def assess(self, image: ImageRef) -> QualityResult: ...
+
+
+@dataclass(frozen=True)
+class DuplicateCandidate:
+    """A photo as input to duplicate grouping: enough to hash its pixels and,
+    for the members of a group, to recommend a keeper (SDD §10 -- highest
+    resolution, then earliest capture time).
+    """
+
+    photo_id: PhotoId
+    path: Path
+    width: int
+    height: int
+    captured_at: datetime | None
+
+
+@dataclass(frozen=True)
+class DuplicateGroupMemberResult:
+    photo_id: PhotoId
+    similarity_score: float
+    is_recommended_keeper: bool
+
+
+@dataclass(frozen=True)
+class DuplicateGroupResult:
+    detection_method: str
+    members: list[DuplicateGroupMemberResult]

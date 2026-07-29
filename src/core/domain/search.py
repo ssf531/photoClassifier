@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Protocol
 
 from core.domain.library import PhotoId
@@ -50,3 +51,30 @@ class EmbeddingService(Protocol):
     async def embed(self, photo_id: PhotoId, provider: str) -> None: ...
     async def similar_to(self, photo_id: PhotoId, k: int) -> list[ScoredPhoto]: ...
     async def embed_text(self, query: str, provider: str) -> Vector: ...
+
+
+@dataclass(frozen=True)
+class DateRange:
+    start: datetime | None = None
+    end: datetime | None = None
+
+
+@dataclass(frozen=True)
+class GpsBoundingBox:
+    min_lat: float
+    max_lat: float
+    min_lon: float
+    max_lon: float
+
+
+@dataclass(frozen=True)
+class MetadataFilters:
+    """Hard filters (SDD §7.2): applied as SQL WHERE, intersected with any
+    text/vector candidate set before ranking. `date_range` is against
+    `captured_at_local` (ADR-0011) -- never a UTC column, per the timestamp
+    policy."""
+
+    date_range: DateRange | None = None
+    camera_model: str | None = None
+    min_rating: int | None = None
+    gps_bbox: GpsBoundingBox | None = None

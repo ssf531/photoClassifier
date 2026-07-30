@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "generate:api": "python -m core.api.schema_export openapi.json && openapi-typescript openapi.json -o src/api/schema.ts && prettier --write openapi.json src/api/schema.ts"
@@ -32,6 +33,7 @@
     "prettier": "^3.3.0",
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.0.0",
-    "vite": "^5.3.1"
+    "vite": "^5.3.1",
+    "vitest": "^4.1.10"
   }
 }

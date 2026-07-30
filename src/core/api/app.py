@@ -3,13 +3,13 @@ import uuid
 from io import BytesIO
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from PIL import Image
 
 from core.api.auth import generate_launch_token, make_bearer_token_dependency
-from core.domain.scheduler import TaskScheduler
+from core.domain.scheduler import JobProgress, TaskScheduler
 from core.domain.settings import AppSettings
 from core.domain.thumbnails import ThumbSize
 from core.domain.version import CORE_API_VERSION, HealthResponse, VersionResponse
@@ -31,6 +31,15 @@ def _make_placeholder_jpeg() -> bytes:
 
 _PLACEHOLDER_JPEG = _make_placeholder_jpeg()
 _IMMUTABLE_CACHE_CONTROL = "public, max-age=31536000, immutable"
+
+
+def _job_progress_payload(progress: JobProgress) -> dict[str, str | float]:
+    return {
+        "job_id": str(progress.job_id),
+        "job_type": progress.job_type,
+        "status": progress.status.value,
+        "progress_pct": progress.progress_pct,
+    }
 
 
 def _index_html_with_launch_token(index_path: Path, launch_token: str) -> str:
@@ -96,6 +105,27 @@ def create_app(
             media_type="image/jpeg",
             headers={"ETag": outcome.etag, "Cache-Control": _IMMUTABLE_CACHE_CONTROL},
         )
+
+    @app.websocket("/api/v1/jobs/progress")
+    async def job_progress(websocket: WebSocket, token: str | None = None) -> None:
+        # Browsers' native WebSocket API can't set an Authorization header,
+        # so the launch token travels as a query parameter here instead.
+        if token != launch_token:
+            await websocket.close(code=1008)
+            return
+
+        scheduler = websocket.app.state.scheduler
+        if scheduler is None:
+            await websocket.close(code=1011)
+            return
+
+        await websocket.accept()
+        try:
+            async for progress in scheduler.progress_stream():
+                await websocket.send_json(_job_progress_payload(progress))
+        except WebSocketDisconnect:
+            return
+        await websocket.close()
 
     index_path = ui_dist_dir / "index.html"
     if index_path.is_file():

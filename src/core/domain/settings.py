@@ -43,6 +43,12 @@ def models_dir() -> Path:
     return data_dir() / "models"
 
 
+def thumbnails_dir() -> Path:
+    """On-disk thumbnail cache (SDD §12), under the platform data directory
+    so it moves with `--portable` like everything else."""
+    return data_dir() / "thumbnails"
+
+
 def config_file_path() -> Path:
     return config_dir() / "config.toml"
 

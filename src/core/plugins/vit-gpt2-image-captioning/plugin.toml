@@ -1,0 +1,13 @@
+[plugin]
+id = "vit-gpt2-image-captioning"
+name = "ViT-GPT2 Image Captioning Provider"
+version = "1.0.0"
+capability = "caption"
+entry_point = "inproc"
+runtime = "python"
+permissions = ["read:image_bytes"]
+model_source = "download"
+model_filename = "encoder_model_quantized.onnx"
+
+[compatibility]
+core_api_version = ">=1.0,<2.0"

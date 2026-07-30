@@ -1,0 +1,12 @@
+[plugin]
+id = "builtin-quality"
+name = "Sharpness/Exposure Quality Provider"
+version = "1.0.0"
+capability = "quality"
+entry_point = "inproc"
+runtime = "python"
+permissions = ["read:image_bytes"]
+model_source = "bundled"
+
+[compatibility]
+core_api_version = ">=1.0,<2.0"

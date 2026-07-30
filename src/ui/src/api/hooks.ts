@@ -144,3 +144,27 @@ export function useUpdatePlugin() {
     },
   });
 }
+
+export function useCreateLibraryRoot() {
+  return useMutation({
+    mutationFn: async (path: string) => {
+      const { data, error } = await apiClient.POST("/api/v1/library-roots", {
+        body: { path },
+      });
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
+export function useTriggerScan() {
+  return useMutation({
+    mutationFn: async (libraryRootId: string) => {
+      const { data, error } = await apiClient.POST("/api/v1/scan", {
+        body: { library_root_id: libraryRootId },
+      });
+      if (error) throw error;
+      return data;
+    },
+  });
+}

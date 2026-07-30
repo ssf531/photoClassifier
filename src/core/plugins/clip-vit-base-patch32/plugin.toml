@@ -1,0 +1,13 @@
+[plugin]
+id = "clip-vit-base-patch32"
+name = "CLIP Embedding Provider"
+version = "1.0.0"
+capability = "embedding"
+entry_point = "inproc"
+runtime = "python"
+permissions = ["read:image_bytes"]
+model_source = "download"
+model_filename = "vision_model_quantized.onnx"
+
+[compatibility]
+core_api_version = ">=1.0,<2.0"

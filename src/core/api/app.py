@@ -14,12 +14,16 @@ from core.api.auth import (
 )
 from core.domain.library import (
     AiResultSummary,
+    LibraryRootCreateRequest,
+    LibraryRootResponse,
     PhotoDetailResponse,
     PhotoListResponse,
     PhotoSummary,
+    ScanRequest,
+    ScanResponse,
 )
 from core.domain.plugins import PluginListResponse, PluginSummary, PluginUpdateRequest
-from core.domain.scheduler import JobProgress, TaskScheduler
+from core.domain.scheduler import JobProgress, JobSpec, TaskScheduler
 from core.domain.search import (
     SearchQueryRequest,
     SearchResponse,
@@ -31,9 +35,11 @@ from core.domain.settings import AppSettings, SettingsPatch, SettingsService
 from core.domain.thumbnails import ThumbSize
 from core.domain.version import CORE_API_VERSION, HealthResponse, VersionResponse
 from core.infrastructure.ai_result_repository import AiResultRepository
-from core.infrastructure.library_repository import PhotoRepository
+from core.infrastructure.db.library_models import LibraryRoot
+from core.infrastructure.library_repository import LibraryRootRepository, PhotoRepository
 from core.infrastructure.metadata_repository import MetadataRepository
 from core.infrastructure.plugin_repository import PluginRepository
+from core.infrastructure.scan_job import SCAN_JOB_TYPE
 from core.infrastructure.thumbnail_service import (
     PhotoNotFoundError,
     PhotoNotHashedError,
@@ -89,6 +95,7 @@ def create_app(
     search_service: SearchService | None = None,
     settings_service: SettingsService | None = None,
     plugin_repo: PluginRepository | None = None,
+    library_root_repo: LibraryRootRepository | None = None,
     ui_dist_dir: Path = UI_DIST_DIR,
 ) -> FastAPI:
     launch_token = token or generate_launch_token()
@@ -106,6 +113,7 @@ def create_app(
     app.state.search_service = search_service
     app.state.settings_service = settings_service
     app.state.plugin_repo = plugin_repo
+    app.state.library_root_repo = library_root_repo
 
     @app.get("/health", dependencies=[Depends(require_bearer_token)])
     def health() -> HealthResponse:
@@ -250,6 +258,31 @@ def create_app(
             enabled=updated.enabled,
             permissions=updated.permissions,
         )
+
+    @app.post("/api/v1/library-roots", dependencies=[Depends(require_bearer_token)])
+    async def create_library_root(
+        body: LibraryRootCreateRequest, request: Request
+    ) -> LibraryRootResponse:
+        repo = request.app.state.library_root_repo
+        if repo is None:
+            raise HTTPException(status_code=503, detail="library root repository not configured")
+        existing = await repo.get_by_path(body.path)
+        root = existing if existing is not None else await repo.create(LibraryRoot(path=body.path))
+        return LibraryRootResponse(id=root.id, path=root.path)
+
+    @app.post("/api/v1/scan", dependencies=[Depends(require_bearer_token)])
+    async def trigger_scan(body: ScanRequest, request: Request) -> ScanResponse:
+        scheduler_ = request.app.state.scheduler
+        library_root_repo_ = request.app.state.library_root_repo
+        if scheduler_ is None or library_root_repo_ is None:
+            raise HTTPException(status_code=503, detail="scan service not configured")
+        root = await library_root_repo_.get(body.library_root_id)
+        if root is None:
+            raise HTTPException(status_code=404, detail="library root not found")
+        job_id = await scheduler_.enqueue(
+            JobSpec(job_type=SCAN_JOB_TYPE, params={"library_root_id": str(body.library_root_id)})
+        )
+        return ScanResponse(job_id=job_id)
 
     @app.get("/api/v1/thumbnails/{photo_id}", dependencies=[Depends(require_bearer_or_query_token)])
     async def get_thumbnail(photo_id: uuid.UUID, size: ThumbSize, request: Request) -> Response:

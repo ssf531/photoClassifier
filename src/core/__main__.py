@@ -1,4 +1,5 @@
 import argparse
+import asyncio
 import threading
 
 import uvicorn
@@ -23,7 +24,7 @@ def _parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = _parse_args()
-    app = compose().app
+    app = asyncio.run(compose()).app
     print(f"core: listening on http://{HOST}:{PORT}", flush=True)
     print(f"core: launch token: {app.state.launch_token}", flush=True)
 

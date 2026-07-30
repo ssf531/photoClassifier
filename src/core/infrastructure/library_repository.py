@@ -10,6 +10,11 @@ from core.infrastructure.db.repository import SqlAlchemyRepository
 class LibraryRootRepository(SqlAlchemyRepository[LibraryRoot]):
     model = LibraryRoot
 
+    async def get_by_path(self, path: str) -> LibraryRoot | None:
+        async with self._read_sessions() as session:
+            result = await session.execute(select(LibraryRoot).where(LibraryRoot.path == path))
+            return result.scalar_one_or_none()
+
 
 class PhotoRepository(SqlAlchemyRepository[Photo]):
     model = Photo

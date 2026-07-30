@@ -47,3 +47,23 @@ class PhotoDetailResponse(BaseModel):
     width: int | None
     height: int | None
     ai_results: list[AiResultSummary]
+
+
+# --- API-facing models (TASK-072) -------------------------------------------
+
+
+class LibraryRootCreateRequest(BaseModel):
+    path: str
+
+
+class LibraryRootResponse(BaseModel):
+    id: LibraryRootId
+    path: str
+
+
+class ScanRequest(BaseModel):
+    library_root_id: LibraryRootId
+
+
+class ScanResponse(BaseModel):
+    job_id: uuid.UUID

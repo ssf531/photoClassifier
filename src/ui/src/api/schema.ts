@@ -141,6 +141,40 @@ export interface paths {
     patch: operations["update_plugin_api_v1_plugins__plugin_id__patch"];
     trace?: never;
   };
+  "/api/v1/library-roots": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Create Library Root */
+    post: operations["create_library_root_api_v1_library_roots_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/scan": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Trigger Scan */
+    post: operations["trigger_scan_api_v1_scan_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/thumbnails/{photo_id}": {
     parameters: {
       query?: never;
@@ -235,6 +269,21 @@ export interface components {
       /** Status */
       status: string;
     };
+    /** LibraryRootCreateRequest */
+    LibraryRootCreateRequest: {
+      /** Path */
+      path: string;
+    };
+    /** LibraryRootResponse */
+    LibraryRootResponse: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Path */
+      path: string;
+    };
     /** MetadataFiltersRequest */
     MetadataFiltersRequest: {
       date_range?: components["schemas"]["DateRangeRequest"] | null;
@@ -311,6 +360,22 @@ export interface components {
     PluginUpdateRequest: {
       /** Enabled */
       enabled: boolean;
+    };
+    /** ScanRequest */
+    ScanRequest: {
+      /**
+       * Library Root Id
+       * Format: uuid
+       */
+      library_root_id: string;
+    };
+    /** ScanResponse */
+    ScanResponse: {
+      /**
+       * Job Id
+       * Format: uuid
+       */
+      job_id: string;
     };
     /** SearchQueryRequest */
     SearchQueryRequest: {
@@ -689,6 +754,76 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["PluginSummary"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  create_library_root_api_v1_library_roots_post: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["LibraryRootCreateRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["LibraryRootResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  trigger_scan_api_v1_scan_post: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ScanRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ScanResponse"];
         };
       };
       /** @description Validation Error */

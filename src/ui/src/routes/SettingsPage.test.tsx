@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { apiClient } from "../api/client";
 import { SettingsPage } from "./SettingsPage";
@@ -63,6 +63,10 @@ function renderPage() {
 }
 
 describe("SettingsPage", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it("shows the current library roots and enabled AI modules", async () => {
     renderPage();
 
@@ -90,6 +94,44 @@ describe("SettingsPage", () => {
           body: { enabled: false },
         },
       );
+    });
+  });
+
+  it("checking CPU only PATCHes gpu_execution_provider", async () => {
+    renderPage();
+    vi.mocked(apiClient.PATCH).mockResolvedValue({
+      data: { ...SETTINGS, gpu_execution_provider: "CPUExecutionProvider" },
+      error: undefined,
+      response: new Response(),
+    });
+
+    await waitFor(() => screen.getByText("C:/Photos"));
+    fireEvent.click(screen.getByRole("checkbox", { name: /CPU only/ }));
+
+    await waitFor(() => {
+      expect(apiClient.PATCH).toHaveBeenCalledWith("/api/v1/settings", {
+        body: { gpu_execution_provider: "CPUExecutionProvider" },
+      });
+    });
+  });
+
+  it("commits a new cache limit on blur", async () => {
+    renderPage();
+    vi.mocked(apiClient.PATCH).mockResolvedValue({
+      data: { ...SETTINGS, thumbnail_cache_max_mb: 4096 },
+      error: undefined,
+      response: new Response(),
+    });
+
+    await waitFor(() => screen.getByText("C:/Photos"));
+    const cacheInput = screen.getByLabelText(/Thumbnail cache limit/);
+    fireEvent.change(cacheInput, { target: { value: "4096" } });
+    fireEvent.blur(cacheInput);
+
+    await waitFor(() => {
+      expect(apiClient.PATCH).toHaveBeenCalledWith("/api/v1/settings", {
+        body: { thumbnail_cache_max_mb: 4096 },
+      });
     });
   });
 });

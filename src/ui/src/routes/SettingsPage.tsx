@@ -61,6 +61,60 @@ function LibraryRoots(): React.JSX.Element {
   );
 }
 
+const CPU_ONLY_PROVIDER = "CPUExecutionProvider";
+
+function GpuAndPerformance(): React.JSX.Element {
+  const { data: settings, isLoading } = useSettings();
+  const updateSettings = useUpdateSettings();
+  const [cacheLimitInput, setCacheLimitInput] = useState<string | null>(null);
+
+  if (isLoading || !settings) {
+    return <p>Loading settings...</p>;
+  }
+
+  const cpuOnly = settings.gpu_execution_provider === CPU_ONLY_PROVIDER;
+  const cacheLimitValue =
+    cacheLimitInput ?? String(settings.thumbnail_cache_max_mb);
+
+  const commitCacheLimit = (): void => {
+    const parsed = Number(cacheLimitValue);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      updateSettings.mutate({ thumbnail_cache_max_mb: parsed });
+    }
+    setCacheLimitInput(null);
+  };
+
+  return (
+    <section>
+      <h2>GPU &amp; performance</h2>
+      <label>
+        <input
+          type="checkbox"
+          checked={cpuOnly}
+          onChange={(event) =>
+            updateSettings.mutate({
+              gpu_execution_provider: event.target.checked
+                ? CPU_ONLY_PROVIDER
+                : null,
+            })
+          }
+        />
+        CPU only (disable GPU acceleration)
+      </label>
+      <label>
+        Thumbnail cache limit (MB)
+        <input
+          type="number"
+          min={1}
+          value={cacheLimitValue}
+          onChange={(event) => setCacheLimitInput(event.target.value)}
+          onBlur={commitCacheLimit}
+        />
+      </label>
+    </section>
+  );
+}
+
 function AiModules(): React.JSX.Element {
   const { data, isLoading } = usePlugins();
   const updatePlugin = useUpdatePlugin();
@@ -96,11 +150,16 @@ function AiModules(): React.JSX.Element {
 }
 
 /**
- * Library roots + enabled AI modules (TASK-069). Per-capability provider
- * selection is not exposed: v1 ships exactly one provider per capability
- * (CLIP embedding/tagging, vit-gpt2 captioning, Laplacian quality, pHash
- * duplicate detection), so there is nothing to choose between yet -- this
- * section becomes real once a second provider for some capability exists.
+ * Library roots, enabled AI modules (TASK-069), and GPU/performance
+ * controls (TASK-071). Per-capability provider selection is not exposed:
+ * v1 ships exactly one provider per capability (CLIP embedding/tagging,
+ * vit-gpt2 captioning, Laplacian quality, pHash duplicate detection), so
+ * there is nothing to choose between yet -- this section becomes real once
+ * a second provider for some capability exists. GPU preference only offers
+ * "auto" vs. "CPU only" (not a per-execution-provider picker) since the
+ * settings API doesn't expose which providers are actually available on
+ * this machine -- select_execution_provider's CUDA/DirectML/CPU fallback
+ * order already handles "auto" correctly without the UI needing to know.
  */
 export function SettingsPage(): React.JSX.Element {
   return (
@@ -108,6 +167,7 @@ export function SettingsPage(): React.JSX.Element {
       <h1>Settings</h1>
       <LibraryRoots />
       <AiModules />
+      <GpuAndPerformance />
     </div>
   );
 }

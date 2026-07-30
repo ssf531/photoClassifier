@@ -61,6 +61,7 @@ class PluginSummary(BaseModel):
     version: str
     source: str
     enabled: bool
+    permissions: list[str]
 
 
 class PluginListResponse(BaseModel):

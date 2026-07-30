@@ -946,6 +946,13 @@
           "enabled": {
             "type": "boolean",
             "title": "Enabled"
+          },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Permissions"
           }
         },
         "type": "object",
@@ -955,7 +962,8 @@
           "capability_types",
           "version",
           "source",
-          "enabled"
+          "enabled",
+          "permissions"
         ],
         "title": "PluginSummary"
       },

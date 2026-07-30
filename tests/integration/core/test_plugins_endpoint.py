@@ -49,6 +49,17 @@ async def env(tmp_path: Path) -> AsyncIterator[_Env]:
             enabled=False,
         )
     )
+    await repo.upsert(
+        Plugin(
+            id="remote-tagger",
+            name="Remote Tagger",
+            capability_types="tag",
+            version="1.0.0",
+            source="download",
+            enabled=False,
+            permissions=["network:outbound"],
+        )
+    )
 
     app = create_app(token=TOKEN, plugin_repo=repo)
     client = TestClient(app)
@@ -77,6 +88,8 @@ def test_list_plugins_returns_all_registered_plugins(env: _Env) -> None:
     items = {item["id"]: item for item in response.json()["items"]}
     assert items["clip"]["enabled"] is True
     assert items["vit-gpt2-caption"]["enabled"] is False
+    assert items["clip"]["permissions"] == []
+    assert items["remote-tagger"]["permissions"] == ["network:outbound"]
 
 
 def test_update_plugin_toggles_enabled(env: _Env) -> None:

@@ -223,6 +223,7 @@ def create_app(
                     version=p.version,
                     source=p.source,
                     enabled=p.enabled,
+                    permissions=p.permissions,
                 )
                 for p in plugins
             ]
@@ -247,6 +248,7 @@ def create_app(
             version=updated.version,
             source=updated.source,
             enabled=updated.enabled,
+            permissions=updated.permissions,
         )
 
     @app.get("/api/v1/thumbnails/{photo_id}", dependencies=[Depends(require_bearer_or_query_token)])

@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, String
+from sqlalchemy import JSON, Boolean, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from core.infrastructure.db.base import Base
@@ -13,3 +13,4 @@ class Plugin(Base):
     version: Mapped[str] = mapped_column(String)
     source: Mapped[str] = mapped_column(String)
     enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    permissions: Mapped[list[str]] = mapped_column(JSON, default=list)

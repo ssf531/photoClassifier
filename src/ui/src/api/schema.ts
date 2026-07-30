@@ -304,6 +304,8 @@ export interface components {
       source: string;
       /** Enabled */
       enabled: boolean;
+      /** Permissions */
+      permissions: string[];
     };
     /** PluginUpdateRequest */
     PluginUpdateRequest: {

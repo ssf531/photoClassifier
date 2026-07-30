@@ -29,6 +29,7 @@ const PLUGINS = {
       version: "1.0.0",
       source: "builtin",
       enabled: true,
+      permissions: [],
     },
     {
       id: "vit-gpt2-caption",
@@ -37,6 +38,7 @@ const PLUGINS = {
       version: "1.0.0",
       source: "builtin",
       enabled: true,
+      permissions: [],
     },
   ],
 };

@@ -19,6 +19,13 @@ from core.domain.library import (
     PhotoSummary,
 )
 from core.domain.scheduler import JobProgress, TaskScheduler
+from core.domain.search import (
+    SearchQueryRequest,
+    SearchResponse,
+    SearchResultItem,
+    SearchService,
+    search_query_from_request,
+)
 from core.domain.settings import AppSettings
 from core.domain.thumbnails import ThumbSize
 from core.domain.version import CORE_API_VERSION, HealthResponse, VersionResponse
@@ -75,6 +82,7 @@ def create_app(
     photo_repo: PhotoRepository | None = None,
     metadata_repo: MetadataRepository | None = None,
     ai_result_repo: AiResultRepository | None = None,
+    search_service: SearchService | None = None,
     ui_dist_dir: Path = UI_DIST_DIR,
 ) -> FastAPI:
     launch_token = token or generate_launch_token()
@@ -89,6 +97,7 @@ def create_app(
     app.state.photo_repo = photo_repo
     app.state.metadata_repo = metadata_repo
     app.state.ai_result_repo = ai_result_repo
+    app.state.search_service = search_service
 
     @app.get("/health", dependencies=[Depends(require_bearer_token)])
     def health() -> HealthResponse:
@@ -149,6 +158,33 @@ def create_app(
                 for r in ai_results
             ],
         )
+
+    @app.post("/api/v1/search", dependencies=[Depends(require_bearer_token)])
+    async def search(query: SearchQueryRequest, request: Request) -> SearchResponse:
+        service = request.app.state.search_service
+        photo_repo_ = request.app.state.photo_repo
+        if service is None or photo_repo_ is None:
+            raise HTTPException(status_code=503, detail="search service not configured")
+
+        results = await service.search(search_query_from_request(query))
+
+        # Preserve the service's rank order exactly -- no re-sorting here or
+        # on the client (TASK-068 depends on this holding all the way to the
+        # UI: the server did the ranking, the client only ever renders it).
+        items: list[SearchResultItem] = []
+        for result in results.results:
+            photo = await photo_repo_.get(result.photo_id)
+            if photo is None:
+                continue
+            items.append(
+                SearchResultItem(
+                    id=photo.id,
+                    relative_path=photo.relative_path,
+                    captured_at_utc=photo.captured_at_utc,
+                    score=result.score,
+                )
+            )
+        return SearchResponse(items=items)
 
     @app.get("/api/v1/thumbnails/{photo_id}", dependencies=[Depends(require_bearer_or_query_token)])
     async def get_thumbnail(photo_id: uuid.UUID, size: ThumbSize, request: Request) -> Response:

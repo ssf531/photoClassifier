@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query";
 
 import { apiClient } from "./client";
 import type { components } from "./schema";
@@ -6,6 +6,8 @@ import type { components } from "./schema";
 export type PhotoSummary = components["schemas"]["PhotoSummary"];
 export type PhotoDetail = components["schemas"]["PhotoDetailResponse"];
 export type AiResultSummary = components["schemas"]["AiResultSummary"];
+export type SearchQueryRequest = components["schemas"]["SearchQueryRequest"];
+export type SearchResultItem = components["schemas"]["SearchResultItem"];
 
 const PHOTO_LIST_PAGE_SIZE = 200;
 
@@ -52,6 +54,18 @@ export function usePhotoDetail(photoId: string) {
     queryFn: async () => {
       const { data, error } = await apiClient.GET("/api/v1/photos/{photo_id}", {
         params: { path: { photo_id: photoId } },
+      });
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
+export function useSearch() {
+  return useMutation({
+    mutationFn: async (query: SearchQueryRequest) => {
+      const { data, error } = await apiClient.POST("/api/v1/search", {
+        body: query,
       });
       if (error) throw error;
       return data;

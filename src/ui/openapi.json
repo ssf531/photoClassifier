@@ -219,6 +219,62 @@
         }
       }
     },
+    "/api/v1/search": {
+      "post": {
+        "summary": "Search",
+        "operationId": "search_api_v1_search_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchQueryRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/thumbnails/{photo_id}": {
       "get": {
         "summary": "Get Thumbnail",
@@ -324,6 +380,59 @@
         "required": ["capability", "payload", "confidence", "model_version"],
         "title": "AiResultSummary"
       },
+      "DateRangeRequest": {
+        "properties": {
+          "start": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start"
+          },
+          "end": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End"
+          }
+        },
+        "type": "object",
+        "title": "DateRangeRequest"
+      },
+      "GpsBoundingBoxRequest": {
+        "properties": {
+          "min_lat": {
+            "type": "number",
+            "title": "Min Lat"
+          },
+          "max_lat": {
+            "type": "number",
+            "title": "Max Lat"
+          },
+          "min_lon": {
+            "type": "number",
+            "title": "Min Lon"
+          },
+          "max_lon": {
+            "type": "number",
+            "title": "Max Lon"
+          }
+        },
+        "type": "object",
+        "required": ["min_lat", "max_lat", "min_lon", "max_lon"],
+        "title": "GpsBoundingBoxRequest"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -347,6 +456,54 @@
         "type": "object",
         "required": ["status"],
         "title": "HealthResponse"
+      },
+      "MetadataFiltersRequest": {
+        "properties": {
+          "date_range": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DateRangeRequest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "camera_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Camera Model"
+          },
+          "min_rating": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Rating"
+          },
+          "gps_bbox": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GpsBoundingBoxRequest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "MetadataFiltersRequest"
       },
       "PhotoDetailResponse": {
         "properties": {
@@ -488,6 +645,107 @@
         "type": "object",
         "required": ["id", "relative_path", "captured_at_utc"],
         "title": "PhotoSummary"
+      },
+      "SearchQueryRequest": {
+        "properties": {
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          },
+          "filters": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MetadataFiltersRequest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mode": {
+            "type": "string",
+            "enum": ["metadata", "text", "semantic", "hybrid", "similar_to"],
+            "title": "Mode",
+            "default": "hybrid"
+          },
+          "reference_photo_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Photo Id"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit",
+            "default": 100
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "SearchQueryRequest"
+      },
+      "SearchResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SearchResultItem"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": ["items"],
+        "title": "SearchResponse"
+      },
+      "SearchResultItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "relative_path": {
+            "type": "string",
+            "title": "Relative Path"
+          },
+          "captured_at_utc": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Captured At Utc"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          }
+        },
+        "type": "object",
+        "required": ["id", "relative_path", "captured_at_utc", "score"],
+        "title": "SearchResultItem"
       },
       "ThumbSize": {
         "type": "string",

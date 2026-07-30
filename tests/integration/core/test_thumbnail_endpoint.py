@@ -9,6 +9,11 @@ from core.api.app import create_app
 from core.infrastructure.db.base import Base
 from core.infrastructure.db.engine import create_engine, create_session_factory
 from core.infrastructure.db.library_models import LibraryRoot, Photo
+
+# ai_result's FK to plugin.id must be registered on Base.metadata before
+# create_all() runs (core.api.app imports AiResultRepository transitively);
+# nothing else in this test imports plugin_models.
+from core.infrastructure.db.plugin_models import Plugin as _Plugin  # noqa: F401
 from core.infrastructure.db.write_connection import WriteConnection
 from core.infrastructure.library_repository import LibraryRootRepository, PhotoRepository
 from core.infrastructure.metadata_repository import MetadataRepository

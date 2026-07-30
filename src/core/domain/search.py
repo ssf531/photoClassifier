@@ -2,6 +2,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Literal, Protocol
 
+from pydantic import BaseModel
+
 from core.domain.library import PhotoId
 from core.domain.providers import Vector
 
@@ -112,3 +114,81 @@ class SearchService(Protocol):
     # (FTS5 already syncs via triggers, and EmbeddingService.embed() already
     # handles embeddings directly) -- add it when TASK-059 needs it.
     async def search(self, query: SearchQuery) -> SearchResults: ...
+
+
+# --- API-facing request/response models (TASK-067) -------------------------
+# SearchQuery et al. above are the internal application contract (plain
+# dataclasses); these Pydantic models are the wire format the UI's search
+# bar actually sends, converted to/from the dataclasses at the API boundary.
+
+
+class DateRangeRequest(BaseModel):
+    start: datetime | None = None
+    end: datetime | None = None
+
+
+class GpsBoundingBoxRequest(BaseModel):
+    min_lat: float
+    max_lat: float
+    min_lon: float
+    max_lon: float
+
+
+class MetadataFiltersRequest(BaseModel):
+    date_range: DateRangeRequest | None = None
+    camera_model: str | None = None
+    min_rating: int | None = None
+    gps_bbox: GpsBoundingBoxRequest | None = None
+
+
+class SearchQueryRequest(BaseModel):
+    text: str | None = None
+    filters: MetadataFiltersRequest | None = None
+    mode: SearchMode = "hybrid"
+    reference_photo_id: PhotoId | None = None
+    limit: int = 100
+    offset: int = 0
+
+
+class SearchResultItem(BaseModel):
+    id: PhotoId
+    relative_path: str
+    captured_at_utc: datetime | None
+    score: float
+
+
+class SearchResponse(BaseModel):
+    items: list[SearchResultItem]
+
+
+def search_query_from_request(request: SearchQueryRequest) -> SearchQuery:
+    filters = None
+    if request.filters is not None:
+        date_range = None
+        if request.filters.date_range is not None:
+            date_range = DateRange(
+                start=request.filters.date_range.start, end=request.filters.date_range.end
+            )
+        gps_bbox = None
+        if request.filters.gps_bbox is not None:
+            gps_bbox = GpsBoundingBox(
+                min_lat=request.filters.gps_bbox.min_lat,
+                max_lat=request.filters.gps_bbox.max_lat,
+                min_lon=request.filters.gps_bbox.min_lon,
+                max_lon=request.filters.gps_bbox.max_lon,
+            )
+        filters = MetadataFilters(
+            date_range=date_range,
+            camera_model=request.filters.camera_model,
+            min_rating=request.filters.min_rating,
+            gps_bbox=gps_bbox,
+        )
+
+    return SearchQuery(
+        text=request.text,
+        filters=filters,
+        mode=request.mode,
+        reference_photo_id=request.reference_photo_id,
+        limit=request.limit,
+        offset=request.offset,
+    )

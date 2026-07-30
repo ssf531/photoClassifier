@@ -72,6 +72,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/search": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Search */
+    post: operations["search_api_v1_search_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/thumbnails/{photo_id}": {
     parameters: {
       query?: never;
@@ -106,6 +123,24 @@ export interface components {
       /** Model Version */
       model_version: string;
     };
+    /** DateRangeRequest */
+    DateRangeRequest: {
+      /** Start */
+      start?: string | null;
+      /** End */
+      end?: string | null;
+    };
+    /** GpsBoundingBoxRequest */
+    GpsBoundingBoxRequest: {
+      /** Min Lat */
+      min_lat: number;
+      /** Max Lat */
+      max_lat: number;
+      /** Min Lon */
+      min_lon: number;
+      /** Max Lon */
+      max_lon: number;
+    };
     /** HTTPValidationError */
     HTTPValidationError: {
       /** Detail */
@@ -115,6 +150,15 @@ export interface components {
     HealthResponse: {
       /** Status */
       status: string;
+    };
+    /** MetadataFiltersRequest */
+    MetadataFiltersRequest: {
+      date_range?: components["schemas"]["DateRangeRequest"] | null;
+      /** Camera Model */
+      camera_model?: string | null;
+      /** Min Rating */
+      min_rating?: number | null;
+      gps_bbox?: components["schemas"]["GpsBoundingBoxRequest"] | null;
     };
     /** PhotoDetailResponse */
     PhotoDetailResponse: {
@@ -156,6 +200,49 @@ export interface components {
       relative_path: string;
       /** Captured At Utc */
       captured_at_utc: string | null;
+    };
+    /** SearchQueryRequest */
+    SearchQueryRequest: {
+      /** Text */
+      text?: string | null;
+      filters?: components["schemas"]["MetadataFiltersRequest"] | null;
+      /**
+       * Mode
+       * @default hybrid
+       * @enum {string}
+       */
+      mode: "metadata" | "text" | "semantic" | "hybrid" | "similar_to";
+      /** Reference Photo Id */
+      reference_photo_id?: string | null;
+      /**
+       * Limit
+       * @default 100
+       */
+      limit: number;
+      /**
+       * Offset
+       * @default 0
+       */
+      offset: number;
+    };
+    /** SearchResponse */
+    SearchResponse: {
+      /** Items */
+      items: components["schemas"]["SearchResultItem"][];
+    };
+    /** SearchResultItem */
+    SearchResultItem: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Relative Path */
+      relative_path: string;
+      /** Captured At Utc */
+      captured_at_utc: string | null;
+      /** Score */
+      score: number;
     };
     /**
      * ThumbSize
@@ -305,6 +392,41 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["PhotoDetailResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  search_api_v1_search_post: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SearchQueryRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SearchResponse"];
         };
       };
       /** @description Validation Error */

@@ -5,7 +5,6 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse, Response
-from fastapi.staticfiles import StaticFiles
 from PIL import Image
 
 from core.api.auth import generate_launch_token, make_bearer_token_dependency
@@ -129,11 +128,18 @@ def create_app(
 
     index_path = ui_dist_dir / "index.html"
     if index_path.is_file():
+        index_html = _index_html_with_launch_token(index_path, launch_token)
+        resolved_dist_dir = ui_dist_dir.resolve()
 
-        @app.get("/", response_class=HTMLResponse)
-        def index() -> str:
-            return _index_html_with_launch_token(index_path, launch_token)
-
-        app.mount("/", StaticFiles(directory=ui_dist_dir), name="ui")
+        @app.get("/{full_path:path}")
+        async def spa(full_path: str) -> Response:
+            # Client-side routes (TASK-064) have no corresponding file on
+            # disk -- any request that isn't a real built asset falls back
+            # to index.html, exactly like a browser history-API SPA needs
+            # to survive a direct navigation or refresh.
+            candidate = (resolved_dist_dir / full_path).resolve()
+            if full_path and candidate.is_file() and candidate.is_relative_to(resolved_dist_dir):
+                return FileResponse(candidate)
+            return HTMLResponse(index_html)
 
     return app

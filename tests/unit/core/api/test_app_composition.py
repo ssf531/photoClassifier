@@ -72,3 +72,55 @@ def test_static_assets_are_served_from_the_ui_dist_dir(tmp_path: Path) -> None:
 
     assert response.status_code == 200
     assert response.text == "console.log('hi');"
+
+
+def test_unknown_client_side_routes_fall_back_to_index_html(tmp_path: Path) -> None:
+    (tmp_path / "index.html").write_text(
+        "<html><head><title>Photo Intelligence</title></head><body></body></html>",
+        encoding="utf-8",
+    )
+
+    app = create_app(token="known-token", ui_dist_dir=tmp_path)
+    client = TestClient(app)
+
+    response = client.get("/search")
+
+    assert response.status_code == 200
+    assert "<title>Photo Intelligence</title>" in response.text
+    assert 'window.__LAUNCH_TOKEN__ = "known-token";' in response.text
+
+
+def test_spa_fallback_rejects_path_traversal_outside_the_dist_dir(tmp_path: Path) -> None:
+    (tmp_path / "index.html").write_text(
+        "<html><head><title>Photo Intelligence</title></head><body></body></html>",
+        encoding="utf-8",
+    )
+    secret = tmp_path.parent / "secret.txt"
+    secret.write_text("do not serve me", encoding="utf-8")
+
+    app = create_app(token="known-token", ui_dist_dir=tmp_path)
+    client = TestClient(app)
+
+    # Percent-encoded dot segments survive httpx's own URL normalization
+    # (which only collapses literal ".." in the request path), so this
+    # actually reaches the traversal guard rather than being harmlessly
+    # rewritten to "/secret.txt" before the request is even sent.
+    response = client.get("/%2e%2e/secret.txt")
+
+    assert response.status_code == 200
+    assert "do not serve me" not in response.text
+    assert "<title>Photo Intelligence</title>" in response.text
+
+
+def test_api_routes_still_win_over_the_spa_fallback_when_ui_is_configured(tmp_path: Path) -> None:
+    (tmp_path / "index.html").write_text(
+        "<html><head></head><body></body></html>", encoding="utf-8"
+    )
+
+    app = create_app(token="known-token", ui_dist_dir=tmp_path)
+    client = TestClient(app)
+
+    response = client.get("/health", headers={"Authorization": "Bearer known-token"})
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}

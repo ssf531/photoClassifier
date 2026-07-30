@@ -37,3 +37,19 @@ class PhotoRepository(SqlAlchemyRepository[Photo]):
                 .offset(offset)
             )
             return list(result.scalars().all())
+
+    async def list_active_for_grid(self, *, limit: int, offset: int) -> list[Photo]:
+        """Newest-first paging for the Browse UI grid (TASK-065). `id` is a
+        secondary sort key purely to make paging stable for photos sharing a
+        `captured_at_utc` (including the common all-NULL case), not for any
+        meaning of its own.
+        """
+        async with self._read_sessions() as session:
+            result = await session.execute(
+                select(Photo)
+                .where(Photo.status == FileStatus.ACTIVE.value)
+                .order_by(Photo.captured_at_utc.desc(), Photo.id)
+                .limit(limit)
+                .offset(offset)
+            )
+            return list(result.scalars().all())

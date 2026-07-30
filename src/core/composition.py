@@ -8,6 +8,7 @@ from core.domain.scheduler import TaskScheduler
 from core.domain.settings import AppSettings, data_dir
 from core.infrastructure.db.engine import create_engine, create_session_factory
 from core.infrastructure.db.write_connection import WriteConnection
+from core.infrastructure.library_repository import PhotoRepository
 from core.infrastructure.scheduler import InProcessTaskScheduler, JobItemRepository, JobRepository
 from core.infrastructure.settings_toml import TomlSettingsService
 from core.logging_setup import configure_logging
@@ -34,7 +35,8 @@ def compose(**settings_overrides: Any) -> Composition:
     scheduler: TaskScheduler = InProcessTaskScheduler(
         JobRepository(sessions, writer), JobItemRepository(sessions, writer)
     )
+    photo_repo = PhotoRepository(sessions, writer)
 
-    app = create_app(scheduler=scheduler, settings=settings)
+    app = create_app(scheduler=scheduler, settings=settings, photo_repo=photo_repo)
 
     return Composition(settings=settings, scheduler=scheduler, app=app)

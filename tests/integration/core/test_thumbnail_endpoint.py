@@ -116,6 +116,20 @@ def test_thumbnail_grid_and_preview_are_distinct(env: _Env) -> None:
     assert grid.headers["etag"] != preview.headers["etag"]
 
 
+def test_thumbnail_accepts_the_token_as_a_query_parameter(env: _Env) -> None:
+    # An <img src> can't set an Authorization header, so the thumbnail route
+    # also accepts the launch token as a query param (matching the WS route).
+    response = env.client.get(f"/api/v1/thumbnails/{env.photo_id}?size=grid&token={TOKEN}")
+
+    assert response.status_code == 200
+
+
+def test_thumbnail_rejects_a_wrong_query_token(env: _Env) -> None:
+    response = env.client.get(f"/api/v1/thumbnails/{env.photo_id}?size=grid&token=wrong-token")
+
+    assert response.status_code == 401
+
+
 def test_thumbnail_service_not_configured_returns_503() -> None:
     app = create_app(token=TOKEN)
     client = TestClient(app)

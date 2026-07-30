@@ -7,16 +7,24 @@ from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket, WebSock
 from fastapi.responses import FileResponse, HTMLResponse, Response
 from PIL import Image
 
-from core.api.auth import generate_launch_token, make_bearer_token_dependency
+from core.api.auth import (
+    generate_launch_token,
+    make_bearer_or_query_token_dependency,
+    make_bearer_token_dependency,
+)
+from core.domain.library import PhotoListResponse, PhotoSummary
 from core.domain.scheduler import JobProgress, TaskScheduler
 from core.domain.settings import AppSettings
 from core.domain.thumbnails import ThumbSize
 from core.domain.version import CORE_API_VERSION, HealthResponse, VersionResponse
+from core.infrastructure.library_repository import PhotoRepository
 from core.infrastructure.thumbnail_service import (
     PhotoNotFoundError,
     PhotoNotHashedError,
     ThumbnailService,
 )
+
+_MAX_PHOTO_LIST_LIMIT = 500
 
 UI_DIST_DIR = Path(__file__).resolve().parents[3] / "src" / "ui" / "dist"
 
@@ -57,16 +65,19 @@ def create_app(
     scheduler: TaskScheduler | None = None,
     settings: AppSettings | None = None,
     thumbnail_service: ThumbnailService | None = None,
+    photo_repo: PhotoRepository | None = None,
     ui_dist_dir: Path = UI_DIST_DIR,
 ) -> FastAPI:
     launch_token = token or generate_launch_token()
     require_bearer_token = make_bearer_token_dependency(launch_token)
+    require_bearer_or_query_token = make_bearer_or_query_token_dependency(launch_token)
 
     app = FastAPI(title="Photo Intelligence Core", version=CORE_API_VERSION)
     app.state.launch_token = launch_token
     app.state.scheduler = scheduler
     app.state.settings = settings
     app.state.thumbnail_service = thumbnail_service
+    app.state.photo_repo = photo_repo
 
     @app.get("/health", dependencies=[Depends(require_bearer_token)])
     def health() -> HealthResponse:
@@ -76,7 +87,25 @@ def create_app(
     def version() -> VersionResponse:
         return VersionResponse(core_api_version=CORE_API_VERSION)
 
-    @app.get("/api/v1/thumbnails/{photo_id}", dependencies=[Depends(require_bearer_token)])
+    @app.get("/api/v1/photos", dependencies=[Depends(require_bearer_token)])
+    async def list_photos(request: Request, limit: int = 100, offset: int = 0) -> PhotoListResponse:
+        repo = request.app.state.photo_repo
+        if repo is None:
+            raise HTTPException(status_code=503, detail="photo repository not configured")
+        if not 1 <= limit <= _MAX_PHOTO_LIST_LIMIT:
+            raise HTTPException(
+                status_code=422, detail=f"limit must be between 1 and {_MAX_PHOTO_LIST_LIMIT}"
+            )
+
+        photos = await repo.list_active_for_grid(limit=limit, offset=offset)
+        items = [
+            PhotoSummary(id=p.id, relative_path=p.relative_path, captured_at_utc=p.captured_at_utc)
+            for p in photos
+        ]
+        next_offset = offset + limit if len(items) == limit else None
+        return PhotoListResponse(items=items, next_offset=next_offset)
+
+    @app.get("/api/v1/thumbnails/{photo_id}", dependencies=[Depends(require_bearer_or_query_token)])
     async def get_thumbnail(photo_id: uuid.UUID, size: ThumbSize, request: Request) -> Response:
         service = request.app.state.thumbnail_service
         if service is None:

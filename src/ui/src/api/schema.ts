@@ -38,6 +38,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/photos": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Photos */
+    get: operations["list_photos_api_v1_photos_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/thumbnails/{photo_id}": {
     parameters: {
       query?: never;
@@ -68,6 +85,25 @@ export interface components {
     HealthResponse: {
       /** Status */
       status: string;
+    };
+    /** PhotoListResponse */
+    PhotoListResponse: {
+      /** Items */
+      items: components["schemas"]["PhotoSummary"][];
+      /** Next Offset */
+      next_offset: number | null;
+    };
+    /** PhotoSummary */
+    PhotoSummary: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Relative Path */
+      relative_path: string;
+      /** Captured At Utc */
+      captured_at_utc: string | null;
     };
     /**
      * ThumbSize
@@ -163,10 +199,45 @@ export interface operations {
       };
     };
   };
+  list_photos_api_v1_photos_get: {
+    parameters: {
+      query?: {
+        limit?: number;
+        offset?: number;
+      };
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PhotoListResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   get_thumbnail_api_v1_thumbnails__photo_id__get: {
     parameters: {
       query: {
         size: components["schemas"]["ThumbSize"];
+        token?: string | null;
       };
       header?: {
         authorization?: string | null;

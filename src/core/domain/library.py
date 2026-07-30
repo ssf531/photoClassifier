@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime
 from enum import Enum
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -28,3 +29,21 @@ class PhotoSummary(BaseModel):
 class PhotoListResponse(BaseModel):
     items: list[PhotoSummary]
     next_offset: int | None
+
+
+class AiResultSummary(BaseModel):
+    capability: str
+    payload: dict[str, Any]
+    confidence: float
+    model_version: str
+
+
+class PhotoDetailResponse(BaseModel):
+    id: PhotoId
+    relative_path: str
+    captured_at_utc: datetime | None
+    camera_make: str | None
+    camera_model: str | None
+    width: int | None
+    height: int | None
+    ai_results: list[AiResultSummary]

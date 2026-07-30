@@ -6,9 +6,11 @@ from fastapi import FastAPI
 from core.api.app import create_app
 from core.domain.scheduler import TaskScheduler
 from core.domain.settings import AppSettings, data_dir
+from core.infrastructure.ai_result_repository import AiResultRepository
 from core.infrastructure.db.engine import create_engine, create_session_factory
 from core.infrastructure.db.write_connection import WriteConnection
 from core.infrastructure.library_repository import PhotoRepository
+from core.infrastructure.metadata_repository import MetadataRepository
 from core.infrastructure.scheduler import InProcessTaskScheduler, JobItemRepository, JobRepository
 from core.infrastructure.settings_toml import TomlSettingsService
 from core.logging_setup import configure_logging
@@ -36,7 +38,15 @@ def compose(**settings_overrides: Any) -> Composition:
         JobRepository(sessions, writer), JobItemRepository(sessions, writer)
     )
     photo_repo = PhotoRepository(sessions, writer)
+    metadata_repo = MetadataRepository(sessions, writer)
+    ai_result_repo = AiResultRepository(sessions, writer)
 
-    app = create_app(scheduler=scheduler, settings=settings, photo_repo=photo_repo)
+    app = create_app(
+        scheduler=scheduler,
+        settings=settings,
+        photo_repo=photo_repo,
+        metadata_repo=metadata_repo,
+        ai_result_repo=ai_result_repo,
+    )
 
     return Composition(settings=settings, scheduler=scheduler, app=app)

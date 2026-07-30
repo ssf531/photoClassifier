@@ -12,12 +12,19 @@ from core.api.auth import (
     make_bearer_or_query_token_dependency,
     make_bearer_token_dependency,
 )
-from core.domain.library import PhotoListResponse, PhotoSummary
+from core.domain.library import (
+    AiResultSummary,
+    PhotoDetailResponse,
+    PhotoListResponse,
+    PhotoSummary,
+)
 from core.domain.scheduler import JobProgress, TaskScheduler
 from core.domain.settings import AppSettings
 from core.domain.thumbnails import ThumbSize
 from core.domain.version import CORE_API_VERSION, HealthResponse, VersionResponse
+from core.infrastructure.ai_result_repository import AiResultRepository
 from core.infrastructure.library_repository import PhotoRepository
+from core.infrastructure.metadata_repository import MetadataRepository
 from core.infrastructure.thumbnail_service import (
     PhotoNotFoundError,
     PhotoNotHashedError,
@@ -66,6 +73,8 @@ def create_app(
     settings: AppSettings | None = None,
     thumbnail_service: ThumbnailService | None = None,
     photo_repo: PhotoRepository | None = None,
+    metadata_repo: MetadataRepository | None = None,
+    ai_result_repo: AiResultRepository | None = None,
     ui_dist_dir: Path = UI_DIST_DIR,
 ) -> FastAPI:
     launch_token = token or generate_launch_token()
@@ -78,6 +87,8 @@ def create_app(
     app.state.settings = settings
     app.state.thumbnail_service = thumbnail_service
     app.state.photo_repo = photo_repo
+    app.state.metadata_repo = metadata_repo
+    app.state.ai_result_repo = ai_result_repo
 
     @app.get("/health", dependencies=[Depends(require_bearer_token)])
     def health() -> HealthResponse:
@@ -104,6 +115,40 @@ def create_app(
         ]
         next_offset = offset + limit if len(items) == limit else None
         return PhotoListResponse(items=items, next_offset=next_offset)
+
+    @app.get("/api/v1/photos/{photo_id}", dependencies=[Depends(require_bearer_token)])
+    async def get_photo_detail(photo_id: uuid.UUID, request: Request) -> PhotoDetailResponse:
+        photo_repo_ = request.app.state.photo_repo
+        metadata_repo_ = request.app.state.metadata_repo
+        ai_result_repo_ = request.app.state.ai_result_repo
+        if photo_repo_ is None or metadata_repo_ is None or ai_result_repo_ is None:
+            raise HTTPException(status_code=503, detail="photo detail service not configured")
+
+        photo = await photo_repo_.get(photo_id)
+        if photo is None:
+            raise HTTPException(status_code=404, detail="photo not found")
+
+        metadata = await metadata_repo_.get_by_photo_id(photo_id)
+        ai_results = await ai_result_repo_.list_current_by_photo(photo_id)
+
+        return PhotoDetailResponse(
+            id=photo.id,
+            relative_path=photo.relative_path,
+            captured_at_utc=photo.captured_at_utc,
+            camera_make=metadata.camera_make if metadata else None,
+            camera_model=metadata.camera_model if metadata else None,
+            width=metadata.width if metadata else None,
+            height=metadata.height if metadata else None,
+            ai_results=[
+                AiResultSummary(
+                    capability=r.capability,
+                    payload=r.payload,
+                    confidence=r.confidence,
+                    model_version=r.model_version,
+                )
+                for r in ai_results
+            ],
+        )
 
     @app.get("/api/v1/thumbnails/{photo_id}", dependencies=[Depends(require_bearer_or_query_token)])
     async def get_thumbnail(photo_id: uuid.UUID, size: ThumbSize, request: Request) -> Response:

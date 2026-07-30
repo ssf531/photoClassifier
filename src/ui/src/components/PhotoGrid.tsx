@@ -13,6 +13,7 @@ const END_REACHED_ROW_THRESHOLD = 5;
 export interface PhotoGridProps {
   photos: PhotoSummary[];
   onEndReached?: () => void;
+  onPhotoClick?: (photo: PhotoSummary) => void;
 }
 
 /**
@@ -25,6 +26,7 @@ export interface PhotoGridProps {
 export function PhotoGrid({
   photos,
   onEndReached,
+  onPhotoClick,
 }: PhotoGridProps): React.JSX.Element {
   const parentRef = useRef<HTMLDivElement>(null);
   const rowCount = Math.ceil(photos.length / COLUMN_COUNT);
@@ -81,7 +83,13 @@ export function PhotoGrid({
                   src={thumbnailUrl(photo.id)}
                   alt={photo.relative_path}
                   loading="lazy"
-                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  onClick={onPhotoClick ? () => onPhotoClick(photo) : undefined}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    cursor: onPhotoClick ? "pointer" : undefined,
+                  }}
                 />
               ))}
             </div>

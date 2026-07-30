@@ -55,6 +55,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/photos/{photo_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Photo Detail */
+    get: operations["get_photo_detail_api_v1_photos__photo_id__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/thumbnails/{photo_id}": {
     parameters: {
       query?: never;
@@ -76,6 +93,19 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** AiResultSummary */
+    AiResultSummary: {
+      /** Capability */
+      capability: string;
+      /** Payload */
+      payload: {
+        [key: string]: unknown;
+      };
+      /** Confidence */
+      confidence: number;
+      /** Model Version */
+      model_version: string;
+    };
     /** HTTPValidationError */
     HTTPValidationError: {
       /** Detail */
@@ -85,6 +115,28 @@ export interface components {
     HealthResponse: {
       /** Status */
       status: string;
+    };
+    /** PhotoDetailResponse */
+    PhotoDetailResponse: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Relative Path */
+      relative_path: string;
+      /** Captured At Utc */
+      captured_at_utc: string | null;
+      /** Camera Make */
+      camera_make: string | null;
+      /** Camera Model */
+      camera_model: string | null;
+      /** Width */
+      width: number | null;
+      /** Height */
+      height: number | null;
+      /** Ai Results */
+      ai_results: components["schemas"]["AiResultSummary"][];
     };
     /** PhotoListResponse */
     PhotoListResponse: {
@@ -220,6 +272,39 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["PhotoListResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_photo_detail_api_v1_photos__photo_id__get: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        photo_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PhotoDetailResponse"];
         };
       };
       /** @description Validation Error */

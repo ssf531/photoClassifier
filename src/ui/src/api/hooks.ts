@@ -4,6 +4,8 @@ import { apiClient } from "./client";
 import type { components } from "./schema";
 
 export type PhotoSummary = components["schemas"]["PhotoSummary"];
+export type PhotoDetail = components["schemas"]["PhotoDetailResponse"];
+export type AiResultSummary = components["schemas"]["AiResultSummary"];
 
 const PHOTO_LIST_PAGE_SIZE = 200;
 
@@ -41,5 +43,18 @@ export function usePhotoList() {
     },
     initialPageParam: 0,
     getNextPageParam: (lastPage) => lastPage.next_offset ?? undefined,
+  });
+}
+
+export function usePhotoDetail(photoId: string) {
+  return useQuery({
+    queryKey: ["photo", photoId],
+    queryFn: async () => {
+      const { data, error } = await apiClient.GET("/api/v1/photos/{photo_id}", {
+        params: { path: { photo_id: photoId } },
+      });
+      if (error) throw error;
+      return data;
+    },
   });
 }

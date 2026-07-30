@@ -14,8 +14,8 @@ repos:
         types: [python]
 
       - id: mypy
-        name: mypy --strict (src/core)
-        entry: mypy --strict src/core
+        name: mypy --strict (src/core, tools)
+        entry: mypy --strict src/core tools
         language: system
         types: [python]
         pass_filenames: false

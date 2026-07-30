@@ -1,9 +1,10 @@
+import json
 import uuid
 from io import BytesIO
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from PIL import Image
 
@@ -11,7 +12,7 @@ from core.api.auth import generate_launch_token, make_bearer_token_dependency
 from core.domain.scheduler import TaskScheduler
 from core.domain.settings import AppSettings
 from core.domain.thumbnails import ThumbSize
-from core.domain.version import CORE_API_VERSION
+from core.domain.version import CORE_API_VERSION, HealthResponse, VersionResponse
 from core.infrastructure.thumbnail_service import (
     PhotoNotFoundError,
     PhotoNotHashedError,
@@ -32,11 +33,23 @@ _PLACEHOLDER_JPEG = _make_placeholder_jpeg()
 _IMMUTABLE_CACHE_CONTROL = "public, max-age=31536000, immutable"
 
 
+def _index_html_with_launch_token(index_path: Path, launch_token: str) -> str:
+    """Because UI and API share one process (ADR-0002), the bearer token is
+    never written to disk or passed via stdin -- it reaches the browser by
+    being embedded directly in the served index.html, the only page the
+    server controls before any API call can happen.
+    """
+    html = index_path.read_text(encoding="utf-8")
+    script = f"<script>window.__LAUNCH_TOKEN__ = {json.dumps(launch_token)};</script>\n</head>"
+    return html.replace("</head>", script, 1)
+
+
 def create_app(
     token: str | None = None,
     scheduler: TaskScheduler | None = None,
     settings: AppSettings | None = None,
     thumbnail_service: ThumbnailService | None = None,
+    ui_dist_dir: Path = UI_DIST_DIR,
 ) -> FastAPI:
     launch_token = token or generate_launch_token()
     require_bearer_token = make_bearer_token_dependency(launch_token)
@@ -48,12 +61,12 @@ def create_app(
     app.state.thumbnail_service = thumbnail_service
 
     @app.get("/health", dependencies=[Depends(require_bearer_token)])
-    def health() -> dict[str, str]:
-        return {"status": "ok"}
+    def health() -> HealthResponse:
+        return HealthResponse(status="ok")
 
     @app.get("/version", dependencies=[Depends(require_bearer_token)])
-    def version() -> dict[str, str]:
-        return {"core_api_version": CORE_API_VERSION}
+    def version() -> VersionResponse:
+        return VersionResponse(core_api_version=CORE_API_VERSION)
 
     @app.get("/api/v1/thumbnails/{photo_id}", dependencies=[Depends(require_bearer_token)])
     async def get_thumbnail(photo_id: uuid.UUID, size: ThumbSize, request: Request) -> Response:
@@ -84,7 +97,13 @@ def create_app(
             headers={"ETag": outcome.etag, "Cache-Control": _IMMUTABLE_CACHE_CONTROL},
         )
 
-    if UI_DIST_DIR.is_dir():
-        app.mount("/", StaticFiles(directory=UI_DIST_DIR, html=True), name="ui")
+    index_path = ui_dist_dir / "index.html"
+    if index_path.is_file():
+
+        @app.get("/", response_class=HTMLResponse)
+        def index() -> str:
+            return _index_html_with_launch_token(index_path, launch_token)
+
+        app.mount("/", StaticFiles(directory=ui_dist_dir), name="ui")
 
     return app

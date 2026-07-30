@@ -10,9 +10,12 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "generate:api": "python -m core.api.schema_export openapi.json && openapi-typescript openapi.json -o src/api/schema.ts && prettier --write openapi.json src/api/schema.ts"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.101.4",
+    "openapi-fetch": "^0.17.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
@@ -25,6 +28,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.3",
+    "openapi-typescript": "^7.13.0",
     "prettier": "^3.3.0",
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.0.0",

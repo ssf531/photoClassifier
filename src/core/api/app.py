@@ -18,6 +18,7 @@ from core.domain.library import (
     PhotoListResponse,
     PhotoSummary,
 )
+from core.domain.plugins import PluginListResponse, PluginSummary, PluginUpdateRequest
 from core.domain.scheduler import JobProgress, TaskScheduler
 from core.domain.search import (
     SearchQueryRequest,
@@ -26,17 +27,20 @@ from core.domain.search import (
     SearchService,
     search_query_from_request,
 )
-from core.domain.settings import AppSettings
+from core.domain.settings import AppSettings, SettingsPatch, SettingsService
 from core.domain.thumbnails import ThumbSize
 from core.domain.version import CORE_API_VERSION, HealthResponse, VersionResponse
 from core.infrastructure.ai_result_repository import AiResultRepository
 from core.infrastructure.library_repository import PhotoRepository
 from core.infrastructure.metadata_repository import MetadataRepository
+from core.infrastructure.plugin_repository import PluginRepository
 from core.infrastructure.thumbnail_service import (
     PhotoNotFoundError,
     PhotoNotHashedError,
     ThumbnailService,
 )
+
+_MAX_PLUGIN_LIST_LIMIT = 500
 
 _MAX_PHOTO_LIST_LIMIT = 500
 
@@ -83,6 +87,8 @@ def create_app(
     metadata_repo: MetadataRepository | None = None,
     ai_result_repo: AiResultRepository | None = None,
     search_service: SearchService | None = None,
+    settings_service: SettingsService | None = None,
+    plugin_repo: PluginRepository | None = None,
     ui_dist_dir: Path = UI_DIST_DIR,
 ) -> FastAPI:
     launch_token = token or generate_launch_token()
@@ -98,6 +104,8 @@ def create_app(
     app.state.metadata_repo = metadata_repo
     app.state.ai_result_repo = ai_result_repo
     app.state.search_service = search_service
+    app.state.settings_service = settings_service
+    app.state.plugin_repo = plugin_repo
 
     @app.get("/health", dependencies=[Depends(require_bearer_token)])
     def health() -> HealthResponse:
@@ -185,6 +193,61 @@ def create_app(
                 )
             )
         return SearchResponse(items=items)
+
+    @app.get("/api/v1/settings", dependencies=[Depends(require_bearer_token)])
+    async def get_settings(request: Request) -> AppSettings:
+        service: SettingsService | None = request.app.state.settings_service
+        if service is None:
+            raise HTTPException(status_code=503, detail="settings service not configured")
+        return service.get()
+
+    @app.patch("/api/v1/settings", dependencies=[Depends(require_bearer_token)])
+    async def update_settings(patch: SettingsPatch, request: Request) -> AppSettings:
+        service: SettingsService | None = request.app.state.settings_service
+        if service is None:
+            raise HTTPException(status_code=503, detail="settings service not configured")
+        return await service.update(patch)
+
+    @app.get("/api/v1/plugins", dependencies=[Depends(require_bearer_token)])
+    async def list_plugins(request: Request) -> PluginListResponse:
+        repo = request.app.state.plugin_repo
+        if repo is None:
+            raise HTTPException(status_code=503, detail="plugin repository not configured")
+        plugins = await repo.list(limit=_MAX_PLUGIN_LIST_LIMIT, offset=0)
+        return PluginListResponse(
+            items=[
+                PluginSummary(
+                    id=p.id,
+                    name=p.name,
+                    capability_types=p.capability_types,
+                    version=p.version,
+                    source=p.source,
+                    enabled=p.enabled,
+                )
+                for p in plugins
+            ]
+        )
+
+    @app.patch("/api/v1/plugins/{plugin_id}", dependencies=[Depends(require_bearer_token)])
+    async def update_plugin(
+        plugin_id: str, patch: PluginUpdateRequest, request: Request
+    ) -> PluginSummary:
+        repo = request.app.state.plugin_repo
+        if repo is None:
+            raise HTTPException(status_code=503, detail="plugin repository not configured")
+        plugin = await repo.get(plugin_id)
+        if plugin is None:
+            raise HTTPException(status_code=404, detail="plugin not found")
+        plugin.enabled = patch.enabled
+        updated = await repo.upsert(plugin)
+        return PluginSummary(
+            id=updated.id,
+            name=updated.name,
+            capability_types=updated.capability_types,
+            version=updated.version,
+            source=updated.source,
+            enabled=updated.enabled,
+        )
 
     @app.get("/api/v1/thumbnails/{photo_id}", dependencies=[Depends(require_bearer_or_query_token)])
     async def get_thumbnail(photo_id: uuid.UUID, size: ThumbSize, request: Request) -> Response:

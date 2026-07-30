@@ -49,3 +49,23 @@ class PluginManifest(BaseModel):
     model_source: ModelSource
     model_filename: str | None = None
     compatibility: PluginCompatibility
+
+
+# --- API-facing models (TASK-069/070) ---------------------------------------
+
+
+class PluginSummary(BaseModel):
+    id: str
+    name: str
+    capability_types: str
+    version: str
+    source: str
+    enabled: bool
+
+
+class PluginListResponse(BaseModel):
+    items: list[PluginSummary]
+
+
+class PluginUpdateRequest(BaseModel):
+    enabled: bool

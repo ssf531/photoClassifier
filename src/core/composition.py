@@ -18,6 +18,7 @@ from core.infrastructure.gpu_resource_manager import (
 )
 from core.infrastructure.library_repository import LibraryRootRepository, PhotoRepository
 from core.infrastructure.metadata_repository import MetadataRepository
+from core.infrastructure.plugin_repository import PluginRepository
 from core.infrastructure.scheduler import InProcessTaskScheduler, JobItemRepository, JobRepository
 from core.infrastructure.search_service import DefaultSearchService
 from core.infrastructure.settings_toml import TomlSettingsService
@@ -53,6 +54,7 @@ def compose(**settings_overrides: Any) -> Composition:
     metadata_repo = MetadataRepository(sessions, writer)
     ai_result_repo = AiResultRepository(sessions, writer)
     embedding_refs = EmbeddingRefRepository(sessions, writer)
+    plugin_repo = PluginRepository(sessions, writer)
 
     execution_provider = select_execution_provider(override=settings.gpu_execution_provider)
     clip_provider = ClipEmbeddingProvider(
@@ -82,6 +84,8 @@ def compose(**settings_overrides: Any) -> Composition:
         metadata_repo=metadata_repo,
         ai_result_repo=ai_result_repo,
         search_service=search_service,
+        settings_service=settings_service,
+        plugin_repo=plugin_repo,
     )
 
     return Composition(settings=settings, scheduler=scheduler, app=app)

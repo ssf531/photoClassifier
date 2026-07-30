@@ -89,6 +89,58 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/settings": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Settings */
+    get: operations["get_settings_api_v1_settings_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Update Settings */
+    patch: operations["update_settings_api_v1_settings_patch"];
+    trace?: never;
+  };
+  "/api/v1/plugins": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Plugins */
+    get: operations["list_plugins_api_v1_plugins_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/plugins/{plugin_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Update Plugin */
+    patch: operations["update_plugin_api_v1_plugins__plugin_id__patch"];
+    trace?: never;
+  };
   "/api/v1/thumbnails/{photo_id}": {
     parameters: {
       query?: never;
@@ -122,6 +174,38 @@ export interface components {
       confidence: number;
       /** Model Version */
       model_version: string;
+    };
+    /** AppSettings */
+    AppSettings: {
+      /** Library Roots */
+      library_roots?: string[];
+      /**
+       * Log Level
+       * @default INFO
+       */
+      log_level: string;
+      /**
+       * Thumbnail Cache Max Mb
+       * @default 2048
+       */
+      thumbnail_cache_max_mb: number;
+      /** Gpu Execution Provider */
+      gpu_execution_provider?: string | null;
+      /**
+       * Missing Photo Grace Period Days
+       * @default 30
+       */
+      missing_photo_grace_period_days: number;
+      /**
+       * Thumbnail Grid Size Px
+       * @default 256
+       */
+      thumbnail_grid_size_px: number;
+      /**
+       * Thumbnail Preview Size Px
+       * @default 1024
+       */
+      thumbnail_preview_size_px: number;
     };
     /** DateRangeRequest */
     DateRangeRequest: {
@@ -201,6 +285,31 @@ export interface components {
       /** Captured At Utc */
       captured_at_utc: string | null;
     };
+    /** PluginListResponse */
+    PluginListResponse: {
+      /** Items */
+      items: components["schemas"]["PluginSummary"][];
+    };
+    /** PluginSummary */
+    PluginSummary: {
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /** Capability Types */
+      capability_types: string;
+      /** Version */
+      version: string;
+      /** Source */
+      source: string;
+      /** Enabled */
+      enabled: boolean;
+    };
+    /** PluginUpdateRequest */
+    PluginUpdateRequest: {
+      /** Enabled */
+      enabled: boolean;
+    };
     /** SearchQueryRequest */
     SearchQueryRequest: {
       /** Text */
@@ -243,6 +352,23 @@ export interface components {
       captured_at_utc: string | null;
       /** Score */
       score: number;
+    };
+    /** SettingsPatch */
+    SettingsPatch: {
+      /** Library Roots */
+      library_roots?: string[] | null;
+      /** Log Level */
+      log_level?: string | null;
+      /** Thumbnail Cache Max Mb */
+      thumbnail_cache_max_mb?: number | null;
+      /** Gpu Execution Provider */
+      gpu_execution_provider?: string | null;
+      /** Missing Photo Grace Period Days */
+      missing_photo_grace_period_days?: number | null;
+      /** Thumbnail Grid Size Px */
+      thumbnail_grid_size_px?: number | null;
+      /** Thumbnail Preview Size Px */
+      thumbnail_preview_size_px?: number | null;
     };
     /**
      * ThumbSize
@@ -427,6 +553,140 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["SearchResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_settings_api_v1_settings_get: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AppSettings"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_settings_api_v1_settings_patch: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SettingsPatch"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AppSettings"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_plugins_api_v1_plugins_get: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PluginListResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_plugin_api_v1_plugins__plugin_id__patch: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        plugin_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PluginUpdateRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PluginSummary"];
         };
       };
       /** @description Validation Error */

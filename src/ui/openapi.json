@@ -275,6 +275,217 @@
         }
       }
     },
+    "/api/v1/settings": {
+      "get": {
+        "summary": "Get Settings",
+        "operationId": "get_settings_api_v1_settings_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppSettings"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update Settings",
+        "operationId": "update_settings_api_v1_settings_patch",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppSettings"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/plugins": {
+      "get": {
+        "summary": "List Plugins",
+        "operationId": "list_plugins_api_v1_plugins_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/plugins/{plugin_id}": {
+      "patch": {
+        "summary": "Update Plugin",
+        "operationId": "update_plugin_api_v1_plugins__plugin_id__patch",
+        "parameters": [
+          {
+            "name": "plugin_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Plugin Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PluginUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/thumbnails/{photo_id}": {
       "get": {
         "summary": "Get Thumbnail",
@@ -379,6 +590,56 @@
         "type": "object",
         "required": ["capability", "payload", "confidence", "model_version"],
         "title": "AiResultSummary"
+      },
+      "AppSettings": {
+        "properties": {
+          "library_roots": {
+            "items": {
+              "type": "string",
+              "format": "path"
+            },
+            "type": "array",
+            "title": "Library Roots"
+          },
+          "log_level": {
+            "type": "string",
+            "title": "Log Level",
+            "default": "INFO"
+          },
+          "thumbnail_cache_max_mb": {
+            "type": "integer",
+            "title": "Thumbnail Cache Max Mb",
+            "default": 2048
+          },
+          "gpu_execution_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gpu Execution Provider"
+          },
+          "missing_photo_grace_period_days": {
+            "type": "integer",
+            "title": "Missing Photo Grace Period Days",
+            "default": 30
+          },
+          "thumbnail_grid_size_px": {
+            "type": "integer",
+            "title": "Thumbnail Grid Size Px",
+            "default": 256
+          },
+          "thumbnail_preview_size_px": {
+            "type": "integer",
+            "title": "Thumbnail Preview Size Px",
+            "default": 1024
+          }
+        },
+        "type": "object",
+        "title": "AppSettings"
       },
       "DateRangeRequest": {
         "properties": {
@@ -646,6 +907,69 @@
         "required": ["id", "relative_path", "captured_at_utc"],
         "title": "PhotoSummary"
       },
+      "PluginListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PluginSummary"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": ["items"],
+        "title": "PluginListResponse"
+      },
+      "PluginSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "capability_types": {
+            "type": "string",
+            "title": "Capability Types"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "capability_types",
+          "version",
+          "source",
+          "enabled"
+        ],
+        "title": "PluginSummary"
+      },
+      "PluginUpdateRequest": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          }
+        },
+        "type": "object",
+        "required": ["enabled"],
+        "title": "PluginUpdateRequest"
+      },
       "SearchQueryRequest": {
         "properties": {
           "text": {
@@ -746,6 +1070,93 @@
         "type": "object",
         "required": ["id", "relative_path", "captured_at_utc", "score"],
         "title": "SearchResultItem"
+      },
+      "SettingsPatch": {
+        "properties": {
+          "library_roots": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "format": "path"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Library Roots"
+          },
+          "log_level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Log Level"
+          },
+          "thumbnail_cache_max_mb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thumbnail Cache Max Mb"
+          },
+          "gpu_execution_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gpu Execution Provider"
+          },
+          "missing_photo_grace_period_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Missing Photo Grace Period Days"
+          },
+          "thumbnail_grid_size_px": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thumbnail Grid Size Px"
+          },
+          "thumbnail_preview_size_px": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thumbnail Preview Size Px"
+          }
+        },
+        "type": "object",
+        "title": "SettingsPatch"
       },
       "ThumbSize": {
         "type": "string",

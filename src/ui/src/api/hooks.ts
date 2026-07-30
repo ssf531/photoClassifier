@@ -1,4 +1,9 @@
-import { useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 
 import { apiClient } from "./client";
 import type { components } from "./schema";
@@ -8,6 +13,9 @@ export type PhotoDetail = components["schemas"]["PhotoDetailResponse"];
 export type AiResultSummary = components["schemas"]["AiResultSummary"];
 export type SearchQueryRequest = components["schemas"]["SearchQueryRequest"];
 export type SearchResultItem = components["schemas"]["SearchResultItem"];
+export type AppSettings = components["schemas"]["AppSettings"];
+export type SettingsPatch = components["schemas"]["SettingsPatch"];
+export type PluginSummary = components["schemas"]["PluginSummary"];
 
 const PHOTO_LIST_PAGE_SIZE = 200;
 
@@ -69,6 +77,70 @@ export function useSearch() {
       });
       if (error) throw error;
       return data;
+    },
+  });
+}
+
+export function useSettings() {
+  return useQuery({
+    queryKey: ["settings"],
+    queryFn: async () => {
+      const { data, error } = await apiClient.GET("/api/v1/settings");
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
+export function useUpdateSettings() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (patch: SettingsPatch) => {
+      const { data, error } = await apiClient.PATCH("/api/v1/settings", {
+        body: patch,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["settings"] });
+    },
+  });
+}
+
+export function usePlugins() {
+  return useQuery({
+    queryKey: ["plugins"],
+    queryFn: async () => {
+      const { data, error } = await apiClient.GET("/api/v1/plugins");
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
+export function useUpdatePlugin() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      pluginId,
+      enabled,
+    }: {
+      pluginId: string;
+      enabled: boolean;
+    }) => {
+      const { data, error } = await apiClient.PATCH(
+        "/api/v1/plugins/{plugin_id}",
+        {
+          params: { path: { plugin_id: pluginId } },
+          body: { enabled },
+        },
+      );
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["plugins"] });
     },
   });
 }

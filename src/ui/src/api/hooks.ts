@@ -11,7 +11,12 @@ import type { components } from "./schema";
 export type PhotoSummary = components["schemas"]["PhotoSummary"];
 export type PhotoDetail = components["schemas"]["PhotoDetailResponse"];
 export type AiResultSummary = components["schemas"]["AiResultSummary"];
-export type SearchQueryRequest = components["schemas"]["SearchQueryRequest"];
+// Pydantic emits distinct -Input/-Output schema variants once the same
+// model (SearchQueryRequest) appears in both a request body and a response
+// body (BuiltinFilterPreset); the two are structurally identical, so the
+// request-side name is used everywhere as the one public alias.
+export type SearchQueryRequest =
+  components["schemas"]["SearchQueryRequest-Input"];
 export type SearchResultItem = components["schemas"]["SearchResultItem"];
 export type AppSettings = components["schemas"]["AppSettings"];
 export type SettingsPatch = components["schemas"]["SettingsPatch"];
@@ -20,6 +25,7 @@ export type CollectionSummary = components["schemas"]["CollectionSummary"];
 export type Recommendation = components["schemas"]["Recommendation"];
 export type DuplicateGroupSummary =
   components["schemas"]["DuplicateGroupSummary"];
+export type BuiltinFilterPreset = components["schemas"]["BuiltinFilterPreset"];
 
 const PHOTO_LIST_PAGE_SIZE = 200;
 
@@ -262,6 +268,17 @@ export function useDuplicateGroups() {
     queryKey: ["duplicate-groups"],
     queryFn: async () => {
       const { data, error } = await apiClient.GET("/api/v1/duplicate-groups");
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
+export function useBuiltinFilters() {
+  return useQuery({
+    queryKey: ["builtin-filters"],
+    queryFn: async () => {
+      const { data, error } = await apiClient.GET("/api/v1/builtin-filters");
       if (error) throw error;
       return data;
     },

@@ -12,6 +12,7 @@ from core.api.auth import (
     make_bearer_or_query_token_dependency,
     make_bearer_token_dependency,
 )
+from core.domain.builtin_filters import BuiltinFilterListResponse
 from core.domain.collections import (
     AddCollectionMembersRequest,
     CollectionCreateRequest,
@@ -44,6 +45,7 @@ from core.domain.settings import AppSettings, SettingsPatch, SettingsService
 from core.domain.thumbnails import ThumbSize
 from core.domain.version import CORE_API_VERSION, HealthResponse, VersionResponse
 from core.infrastructure.ai_result_repository import AiResultRepository
+from core.infrastructure.builtin_filters import BUILTIN_FILTER_PRESETS
 from core.infrastructure.collection_manager import CollectionManager, UnknownCollectionError
 from core.infrastructure.db.library_models import LibraryRoot
 from core.infrastructure.duplicate_review_service import DuplicateReviewService
@@ -391,6 +393,10 @@ def create_app(
         groups = await service.list_groups(limit=limit, offset=offset)
         next_offset = offset + limit if len(groups) == limit else None
         return DuplicateGroupListResponse(items=groups, next_offset=next_offset)
+
+    @app.get("/api/v1/builtin-filters", dependencies=[Depends(require_bearer_token)])
+    async def list_builtin_filters() -> BuiltinFilterListResponse:
+        return BuiltinFilterListResponse(items=BUILTIN_FILTER_PRESETS)
 
     @app.get("/api/v1/thumbnails/{photo_id}", dependencies=[Depends(require_bearer_or_query_token)])
     async def get_thumbnail(photo_id: uuid.UUID, size: ThumbSize, request: Request) -> Response:

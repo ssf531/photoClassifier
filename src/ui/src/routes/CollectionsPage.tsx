@@ -3,11 +3,47 @@ import type React from "react";
 import { Link } from "react-router-dom";
 
 import {
+  useBuiltinFilters,
   useCollectionMembers,
   useCollections,
   useCreateCollection,
 } from "../api/hooks";
 import { thumbnailUrl } from "../api/thumbnailUrl";
+
+function QuickFilters(): React.JSX.Element | null {
+  const { data } = useBuiltinFilters();
+  const createCollection = useCreateCollection();
+  const [createdKey, setCreatedKey] = useState<string | null>(null);
+
+  if (!data || data.items.length === 0) {
+    return null;
+  }
+
+  return (
+    <div>
+      <h2>Quick filters</h2>
+      <ul>
+        {data.items.map((preset) => (
+          <li key={preset.key}>
+            {preset.label}{" "}
+            <button
+              type="button"
+              onClick={() => {
+                createCollection.mutate(
+                  { name: preset.label, search_query: preset.search_query },
+                  { onSuccess: () => setCreatedKey(preset.key) },
+                );
+              }}
+            >
+              Create smart collection
+            </button>
+            {createdKey === preset.key && <span> Created.</span>}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 function CollectionMembers({
   collectionId,
@@ -51,9 +87,12 @@ function CollectionMembers({
 }
 
 /**
- * Minimal list/create/view UI for virtual collections (TASK-073, SDD §4.8).
- * Adding photos to a collection happens from the Photo Detail page --
- * multi-select bulk-add from the grid is TASK-081's scope, not this one's.
+ * Minimal list/create/view UI for virtual and smart collections (TASK-073,
+ * TASK-074, SDD §4.8). Adding photos to a virtual collection happens from
+ * the Photo Detail page -- multi-select bulk-add from the grid is
+ * TASK-081's scope, not this one's. "Quick filters" (TASK-080) are
+ * one-click presets that create a live smart collection from a built-in
+ * SearchQuery instead of requiring a manual search first.
  */
 export function CollectionsPage(): React.JSX.Element {
   const { data, isLoading } = useCollections();
@@ -77,6 +116,7 @@ export function CollectionsPage(): React.JSX.Element {
   return (
     <div>
       <h1>Collections</h1>
+      <QuickFilters />
       <div>
         <input
           type="text"

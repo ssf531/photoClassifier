@@ -246,7 +246,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SearchQueryRequest"
+                "$ref": "#/components/schemas/SearchQueryRequest-Input"
               }
             }
           }
@@ -948,6 +948,52 @@
         }
       }
     },
+    "/api/v1/builtin-filters": {
+      "get": {
+        "summary": "List Builtin Filters",
+        "operationId": "list_builtin_filters_api_v1_builtin_filters_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuiltinFilterListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/thumbnails/{photo_id}": {
       "get": {
         "summary": "Get Thumbnail",
@@ -1118,6 +1164,38 @@
         "type": "object",
         "title": "AppSettings"
       },
+      "BuiltinFilterListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/BuiltinFilterPreset"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": ["items"],
+        "title": "BuiltinFilterListResponse"
+      },
+      "BuiltinFilterPreset": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "search_query": {
+            "$ref": "#/components/schemas/SearchQueryRequest-Output"
+          }
+        },
+        "type": "object",
+        "required": ["key", "label", "search_query"],
+        "title": "BuiltinFilterPreset"
+      },
       "CollectionCreateRequest": {
         "properties": {
           "name": {
@@ -1127,7 +1205,7 @@
           "search_query": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/SearchQueryRequest"
+                "$ref": "#/components/schemas/SearchQueryRequest-Input"
               },
               {
                 "type": "null"
@@ -1428,6 +1506,28 @@
                 "type": "null"
               }
             ]
+          },
+          "is_blurry": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Blurry"
+          },
+          "in_duplicate_group": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "In Duplicate Group"
           }
         },
         "type": "object",
@@ -1707,7 +1807,62 @@
         "required": ["job_id"],
         "title": "ScanResponse"
       },
-      "SearchQueryRequest": {
+      "SearchQueryRequest-Input": {
+        "properties": {
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          },
+          "filters": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MetadataFiltersRequest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mode": {
+            "type": "string",
+            "enum": ["metadata", "text", "semantic", "hybrid", "similar_to"],
+            "title": "Mode",
+            "default": "hybrid"
+          },
+          "reference_photo_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Photo Id"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit",
+            "default": 100
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "SearchQueryRequest"
+      },
+      "SearchQueryRequest-Output": {
         "properties": {
           "text": {
             "anyOf": [

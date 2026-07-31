@@ -27,6 +27,16 @@ const COLLECTIONS = {
 
 const MEMBERS = { photo_ids: ["photo-1", "photo-2"], next_offset: null };
 
+const BUILTIN_FILTERS = {
+  items: [
+    {
+      key: "screenshots",
+      label: "Screenshots",
+      search_query: { text: "screenshot", mode: "text" },
+    },
+  ],
+};
+
 function mockGet(): void {
   vi.mocked(apiClient.GET).mockImplementation(async (path: string) => {
     if (path === "/api/v1/collections") {
@@ -34,6 +44,13 @@ function mockGet(): void {
     }
     if (path === "/api/v1/collections/{collection_id}/members") {
       return { data: MEMBERS, error: undefined, response: new Response() };
+    }
+    if (path === "/api/v1/builtin-filters") {
+      return {
+        data: BUILTIN_FILTERS,
+        error: undefined,
+        response: new Response(),
+      };
     }
     throw new Error(`unexpected GET ${path}`);
   });
@@ -103,5 +120,35 @@ describe("CollectionsPage", () => {
 
     await waitFor(() => screen.getAllByRole("img"));
     expect(screen.getAllByRole("img")).toHaveLength(2);
+  });
+
+  it("creates a smart collection from a quick filter preset with one click", async () => {
+    mockGet();
+    vi.mocked(apiClient.POST).mockResolvedValue({
+      data: {
+        id: "coll-3",
+        name: "Screenshots",
+        type: "smart",
+        created_at: "2024-01-01T00:00:00Z",
+        item_count: 0,
+      },
+      error: undefined,
+      response: new Response(),
+    });
+
+    renderPage();
+
+    await waitFor(() => screen.getByText("Screenshots"));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create smart collection" }),
+    );
+
+    await waitFor(() => screen.getByText("Created."));
+    expect(apiClient.POST).toHaveBeenCalledWith("/api/v1/collections", {
+      body: {
+        name: "Screenshots",
+        search_query: { text: "screenshot", mode: "text" },
+      },
+    });
   });
 });

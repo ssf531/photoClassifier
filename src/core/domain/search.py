@@ -74,12 +74,22 @@ class MetadataFilters:
     """Hard filters (SDD §7.2): applied as SQL WHERE, intersected with any
     text/vector candidate set before ranking. `date_range` is against
     `captured_at_local` (ADR-0011) -- never a UTC column, per the timestamp
-    policy."""
+    policy. `is_blurry`/`in_duplicate_group` are AI-derived predicates
+    (TASK-080): unlike the metadata columns above, a full-text search can't
+    express them correctly -- the FTS shadow tables index the raw `ai_result`
+    payload as text, and a quality payload contains the literal substring
+    "is_blurry" regardless of whether its value is true or false, so a text
+    search for "blurry" would match every quality-analyzed photo. These are
+    real SQL predicates instead, joined against `ai_result`/
+    `duplicate_group_member` directly.
+    """
 
     date_range: DateRange | None = None
     camera_model: str | None = None
     min_rating: int | None = None
     gps_bbox: GpsBoundingBox | None = None
+    is_blurry: bool | None = None
+    in_duplicate_group: bool | None = None
 
 
 SearchMode = Literal["metadata", "text", "semantic", "hybrid", "similar_to"]
@@ -139,6 +149,8 @@ class MetadataFiltersRequest(BaseModel):
     camera_model: str | None = None
     min_rating: int | None = None
     gps_bbox: GpsBoundingBoxRequest | None = None
+    is_blurry: bool | None = None
+    in_duplicate_group: bool | None = None
 
 
 class SearchQueryRequest(BaseModel):
@@ -182,6 +194,8 @@ def search_query_from_request(request: SearchQueryRequest) -> SearchQuery:
             camera_model=request.filters.camera_model,
             min_rating=request.filters.min_rating,
             gps_bbox=gps_bbox,
+            is_blurry=request.filters.is_blurry,
+            in_duplicate_group=request.filters.in_duplicate_group,
         )
 
     return SearchQuery(

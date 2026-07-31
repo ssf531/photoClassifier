@@ -1,12 +1,15 @@
 import uuid
 from collections.abc import Sequence
 
-from sqlalchemy import select, text
+from sqlalchemy import Select, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from core.domain.library import PhotoId
+from core.domain.plugins import Capability
 from core.domain.search import GpsBoundingBox, MetadataFilters
+from core.infrastructure.db.ai_result_models import AiResult
 from core.infrastructure.db.collection_models import UserData
+from core.infrastructure.db.duplicate_models import DuplicateGroupMember
 from core.infrastructure.db.library_models import Photo
 from core.infrastructure.db.metadata_models import Metadata
 
@@ -20,8 +23,9 @@ async def filter_photo_ids(
     candidate_ids: Sequence[PhotoId] | None = None,
 ) -> list[PhotoId]:
     """Metadata hard filters (SDD §7.2): date range, camera model, rating
-    threshold, and GPS bounding box, combined with AND semantics. Each
-    filter is applied only when set, so an all-`None` `MetadataFilters`
+    threshold, GPS bounding box, and the AI-derived `is_blurry`/
+    `in_duplicate_group` predicates (TASK-080), combined with AND semantics.
+    Each filter is applied only when set, so an all-`None` `MetadataFilters`
     returns the (paginated) full photo set. `candidate_ids`, when given,
     restricts to that set first -- e.g. post-filtering an already-bounded
     text/semantic result set without an unbounded intermediate fetch.
@@ -52,9 +56,32 @@ async def filter_photo_ids(
             matching_ids = await _gps_bbox_photo_ids(session, filters.gps_bbox)
             query = query.where(Photo.id.in_(matching_ids))
 
+        if filters.is_blurry is not None:
+            query = query.where(Photo.id.in_(_blurry_photo_ids_subquery(filters.is_blurry)))
+
+        if filters.in_duplicate_group is not None:
+            duplicate_ids = select(DuplicateGroupMember.photo_id)
+            if filters.in_duplicate_group:
+                query = query.where(Photo.id.in_(duplicate_ids))
+            else:
+                query = query.where(Photo.id.not_in(duplicate_ids))
+
         query = query.order_by(Photo.id).limit(limit).offset(offset)
         result = await session.execute(query)
         return list(result.scalars().all())
+
+
+def _blurry_photo_ids_subquery(is_blurry: bool) -> Select[tuple[uuid.UUID]]:
+    """A photo counts as (not-)blurry only once it's actually been analyzed:
+    this matches on an existing current `quality` result, not on the
+    absence of one -- there's no signal to claim "not blurry" for a photo
+    that has never been scored.
+    """
+    return select(AiResult.photo_id).where(
+        AiResult.capability == Capability.QUALITY.value,
+        AiResult.is_current.is_(True),
+        func.json_extract(AiResult.payload, "$.is_blurry") == (1 if is_blurry else 0),
+    )
 
 
 async def _gps_bbox_photo_ids(session: AsyncSession, bbox: GpsBoundingBox) -> list[uuid.UUID]:

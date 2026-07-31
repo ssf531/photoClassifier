@@ -245,6 +245,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/builtin-filters": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Builtin Filters */
+    get: operations["list_builtin_filters_api_v1_builtin_filters_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/thumbnails/{photo_id}": {
     parameters: {
       query?: never;
@@ -316,11 +333,24 @@ export interface components {
        */
       thumbnail_preview_size_px: number;
     };
+    /** BuiltinFilterListResponse */
+    BuiltinFilterListResponse: {
+      /** Items */
+      items: components["schemas"]["BuiltinFilterPreset"][];
+    };
+    /** BuiltinFilterPreset */
+    BuiltinFilterPreset: {
+      /** Key */
+      key: string;
+      /** Label */
+      label: string;
+      search_query: components["schemas"]["SearchQueryRequest-Output"];
+    };
     /** CollectionCreateRequest */
     CollectionCreateRequest: {
       /** Name */
       name: string;
-      search_query?: components["schemas"]["SearchQueryRequest"] | null;
+      search_query?: components["schemas"]["SearchQueryRequest-Input"] | null;
     };
     /** CollectionListResponse */
     CollectionListResponse: {
@@ -440,6 +470,10 @@ export interface components {
       /** Min Rating */
       min_rating?: number | null;
       gps_bbox?: components["schemas"]["GpsBoundingBoxRequest"] | null;
+      /** Is Blurry */
+      is_blurry?: boolean | null;
+      /** In Duplicate Group */
+      in_duplicate_group?: boolean | null;
     };
     /** PhotoDetailResponse */
     PhotoDetailResponse: {
@@ -548,7 +582,31 @@ export interface components {
       job_id: string;
     };
     /** SearchQueryRequest */
-    SearchQueryRequest: {
+    "SearchQueryRequest-Input": {
+      /** Text */
+      text?: string | null;
+      filters?: components["schemas"]["MetadataFiltersRequest"] | null;
+      /**
+       * Mode
+       * @default hybrid
+       * @enum {string}
+       */
+      mode: "metadata" | "text" | "semantic" | "hybrid" | "similar_to";
+      /** Reference Photo Id */
+      reference_photo_id?: string | null;
+      /**
+       * Limit
+       * @default 100
+       */
+      limit: number;
+      /**
+       * Offset
+       * @default 0
+       */
+      offset: number;
+    };
+    /** SearchQueryRequest */
+    "SearchQueryRequest-Output": {
       /** Text */
       text?: string | null;
       filters?: components["schemas"]["MetadataFiltersRequest"] | null;
@@ -779,7 +837,7 @@ export interface operations {
     };
     requestBody: {
       content: {
-        "application/json": components["schemas"]["SearchQueryRequest"];
+        "application/json": components["schemas"]["SearchQueryRequest-Input"];
       };
     };
     responses: {
@@ -1198,6 +1256,37 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["DuplicateGroupListResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_builtin_filters_api_v1_builtin_filters_get: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BuiltinFilterListResponse"];
         };
       };
       /** @description Validation Error */

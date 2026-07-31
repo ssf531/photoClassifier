@@ -1011,6 +1011,16 @@
           "name": {
             "type": "string",
             "title": "Name"
+          },
+          "search_query": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SearchQueryRequest"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",

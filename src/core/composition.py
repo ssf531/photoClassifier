@@ -14,7 +14,11 @@ from core.domain.settings import AppSettings, data_dir, models_dir, thumbnails_d
 from core.infrastructure.ai_result_repository import AiResultRepository, EmbeddingRefRepository
 from core.infrastructure.clip_embedding_provider import ClipEmbeddingProvider
 from core.infrastructure.collection_manager import CollectionManager
-from core.infrastructure.collection_repository import CollectionItemRepository, CollectionRepository
+from core.infrastructure.collection_repository import (
+    CollectionItemRepository,
+    CollectionRepository,
+    SmartCollectionRuleRepository,
+)
 from core.infrastructure.db.engine import create_engine, create_session_factory
 from core.infrastructure.db.write_connection import WriteConnection
 from core.infrastructure.embedding_service import DefaultEmbeddingService
@@ -86,9 +90,6 @@ async def compose(**settings_overrides: Any) -> Composition:
     ai_result_repo = AiResultRepository(sessions, writer)
     embedding_refs = EmbeddingRefRepository(sessions, writer)
     plugin_repo = PluginRepository(sessions, writer)
-    collection_manager = CollectionManager(
-        CollectionRepository(sessions, writer), CollectionItemRepository(sessions, writer)
-    )
 
     thumbnail_cache = ThumbnailCacheManager(
         thumbnails_dir(), settings.thumbnail_cache_max_mb * _BYTES_PER_MB
@@ -132,6 +133,12 @@ async def compose(**settings_overrides: Any) -> Composition:
         embedding_service=embedding_service,
         read_sessions=sessions,
         default_embedding_provider=_CLIP_PROVIDER_ID,
+    )
+    collection_manager = CollectionManager(
+        CollectionRepository(sessions, writer),
+        CollectionItemRepository(sessions, writer),
+        SmartCollectionRuleRepository(sessions, writer),
+        search_service,
     )
 
     app = create_app(

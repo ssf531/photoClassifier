@@ -1,33 +1,91 @@
+import asyncio
+import uuid
+from argparse import Namespace
 from collections.abc import AsyncIterator
 from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
+from alembic.config import Config
 from fastapi.testclient import TestClient
 
+from alembic import command
 from core.api.app import create_app
+from core.domain.providers import Vector
+from core.domain.search import ScoredPhoto
 from core.infrastructure.collection_manager import CollectionManager
-from core.infrastructure.collection_repository import CollectionItemRepository, CollectionRepository
-from core.infrastructure.db.base import Base
+from core.infrastructure.collection_repository import (
+    CollectionItemRepository,
+    CollectionRepository,
+    SmartCollectionRuleRepository,
+)
 from core.infrastructure.db.engine import create_engine, create_session_factory
 from core.infrastructure.db.library_models import LibraryRoot, Photo
 from core.infrastructure.db.write_connection import WriteConnection
+from core.infrastructure.fts_search_index import FtsTextSearchIndex
 from core.infrastructure.library_repository import LibraryRootRepository, PhotoRepository
+from core.infrastructure.search_service import DefaultSearchService
+from core.infrastructure.vec_embedding_index import SqliteVecEmbeddingIndex
 
 TOKEN = "known-token"
+REPO_ROOT = Path(__file__).resolve().parents[3]
+
+
+def _alembic_config(db_path: Path) -> Config:
+    cfg = Config(str(REPO_ROOT / "alembic.ini"))
+    cfg.set_main_option("script_location", str(REPO_ROOT / "alembic"))
+    cfg.cmd_opts = Namespace(x=[f"db_path={db_path}"])
+    return cfg
+
+
+class _UnusedEmbeddingService:
+    """These tests only exercise `text` search mode (via smart collections),
+    which never calls an `EmbeddingService`."""
+
+    async def embed(self, photo_id: uuid.UUID, provider: str) -> None:
+        raise NotImplementedError
+
+    async def similar_to(self, photo_id: uuid.UUID, k: int) -> list[ScoredPhoto]:
+        raise NotImplementedError
+
+    async def embed_text(self, query: str, provider: str) -> Vector:
+        raise NotImplementedError
 
 
 class _Env:
-    def __init__(self, client: TestClient, photo_ids: list[str]) -> None:
+    def __init__(
+        self,
+        client: TestClient,
+        photo_ids: list[str],
+        photo_repo: PhotoRepository,
+        library_root_id: uuid.UUID,
+    ) -> None:
         self.client = client
         self.photo_ids = photo_ids
+        self.photo_repo = photo_repo
+        self.library_root_id = library_root_id
+
+    async def add_photo(self, relative_path: str) -> str:
+        now = datetime.now(timezone.utc)  # noqa: UP017 -- kept pre-3.11 alias pending broader migration
+        photo = await self.photo_repo.create(
+            Photo(
+                library_root_id=self.library_root_id,
+                relative_path=relative_path,
+                relative_path_folded=relative_path.lower(),
+                size_bytes=1,
+                file_mtime=now,
+                status="active",
+            )
+        )
+        return str(photo.id)
 
 
 @pytest.fixture
 async def env(tmp_path: Path) -> AsyncIterator[_Env]:
-    engine = create_engine(tmp_path / "collections.db")
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    db_path = tmp_path / "collections.db"
+    await asyncio.to_thread(command.upgrade, _alembic_config(db_path), "head")
+
+    engine = create_engine(db_path)
     writer = WriteConnection(engine)
     sessions = create_session_factory(engine)
 
@@ -56,14 +114,24 @@ async def env(tmp_path: Path) -> AsyncIterator[_Env]:
         )
     )
 
+    search_service = DefaultSearchService(
+        text_index=FtsTextSearchIndex(sessions),
+        embedding_index=SqliteVecEmbeddingIndex(sessions, writer),
+        embedding_service=_UnusedEmbeddingService(),
+        read_sessions=sessions,
+        default_embedding_provider="clip",
+    )
     manager = CollectionManager(
-        CollectionRepository(sessions, writer), CollectionItemRepository(sessions, writer)
+        CollectionRepository(sessions, writer),
+        CollectionItemRepository(sessions, writer),
+        SmartCollectionRuleRepository(sessions, writer),
+        search_service,
     )
     app = create_app(token=TOKEN, collection_manager=manager)
     client = TestClient(app)
 
     try:
-        yield _Env(client, [str(photo_a.id), str(photo_b.id)])
+        yield _Env(client, [str(photo_a.id), str(photo_b.id)], photo_repo, root.id)
     finally:
         await writer.close()
         await engine.dispose()
@@ -154,6 +222,45 @@ def test_list_members_404s_for_unknown_collection(env: _Env) -> None:
     )
 
     assert response.status_code == 404
+
+
+async def test_create_smart_collection_evaluates_the_saved_query_live(env: _Env) -> None:
+    matching_id = await env.add_photo("sunset-beach.jpg")
+    await env.add_photo("receipt-scan.jpg")
+
+    created = env.client.post(
+        "/api/v1/collections",
+        json={"name": "Sunsets", "search_query": {"text": "sunset", "mode": "text"}},
+        headers=_auth_headers(),
+    ).json()
+    assert created["type"] == "smart"
+
+    members_response = env.client.get(
+        f"/api/v1/collections/{created['id']}/members", headers=_auth_headers()
+    )
+    assert members_response.json()["photo_ids"] == [matching_id]
+
+
+async def test_smart_collection_membership_updates_without_manual_refresh(env: _Env) -> None:
+    created = env.client.post(
+        "/api/v1/collections",
+        json={"name": "Sunsets", "search_query": {"text": "sunset", "mode": "text"}},
+        headers=_auth_headers(),
+    ).json()
+    first_check = env.client.get(
+        f"/api/v1/collections/{created['id']}/members", headers=_auth_headers()
+    )
+    assert first_check.json()["photo_ids"] == []
+
+    new_photo_id = await env.add_photo("sunset-cliff.jpg")
+
+    second_check = env.client.get(
+        f"/api/v1/collections/{created['id']}/members", headers=_auth_headers()
+    )
+    assert second_check.json()["photo_ids"] == [new_photo_id]
+
+    list_response = env.client.get("/api/v1/collections", headers=_auth_headers())
+    assert list_response.json()["items"][0]["item_count"] == 1
 
 
 def test_collections_endpoints_return_503_when_not_configured() -> None:

@@ -310,7 +310,10 @@ def create_app(
         manager = request.app.state.collection_manager
         if manager is None:
             raise HTTPException(status_code=503, detail="collection manager not configured")
-        collection = await manager.create(body.name)
+        if body.search_query is not None:
+            collection = await manager.create_smart(body.name, body.search_query)
+        else:
+            collection = await manager.create(body.name)
         return CollectionSummary(
             id=collection.id,
             name=collection.name,

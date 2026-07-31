@@ -66,7 +66,7 @@ export function CollectionsPage(): React.JSX.Element {
     if (!trimmed) {
       return;
     }
-    createCollection.mutate(trimmed);
+    createCollection.mutate({ name: trimmed });
     setName("");
   };
 

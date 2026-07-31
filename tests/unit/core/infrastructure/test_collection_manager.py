@@ -1,20 +1,57 @@
+import asyncio
 import os
 import shutil
 import uuid
+from argparse import Namespace
 from collections.abc import AsyncIterator
 from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
+from alembic.config import Config
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from alembic import command
+from core.domain.providers import Vector
+from core.domain.search import ScoredPhoto, SearchQueryRequest
 from core.infrastructure.collection_manager import CollectionManager, UnknownCollectionError
-from core.infrastructure.collection_repository import CollectionItemRepository, CollectionRepository
-from core.infrastructure.db.base import Base
+from core.infrastructure.collection_repository import (
+    CollectionItemRepository,
+    CollectionRepository,
+    SmartCollectionRuleRepository,
+)
 from core.infrastructure.db.engine import create_engine, create_session_factory
 from core.infrastructure.db.library_models import LibraryRoot, Photo
 from core.infrastructure.db.write_connection import WriteConnection
-from core.infrastructure.library_repository import LibraryRootRepository
+from core.infrastructure.fts_search_index import FtsTextSearchIndex
+from core.infrastructure.library_repository import LibraryRootRepository, PhotoRepository
+from core.infrastructure.search_service import DefaultSearchService
+from core.infrastructure.vec_embedding_index import SqliteVecEmbeddingIndex
+
+REPO_ROOT = Path(__file__).resolve().parents[4]
+
+
+def _alembic_config(db_path: Path) -> Config:
+    cfg = Config(str(REPO_ROOT / "alembic.ini"))
+    cfg.set_main_option("script_location", str(REPO_ROOT / "alembic"))
+    cfg.cmd_opts = Namespace(x=[f"db_path={db_path}"])
+    return cfg
+
+
+class _UnusedEmbeddingService:
+    """`DefaultSearchService` requires an `EmbeddingService`, but every test
+    here only exercises `text`/`metadata` search modes, which never call it.
+    """
+
+    async def embed(self, photo_id: uuid.UUID, provider: str) -> None:
+        raise NotImplementedError
+
+    async def similar_to(self, photo_id: uuid.UUID, k: int) -> list[ScoredPhoto]:
+        raise NotImplementedError
+
+    async def embed_text(self, query: str, provider: str) -> Vector:
+        raise NotImplementedError
+
 
 _PHOTO_COUNT = 10_000
 _SEED_BATCH_SIZE = 2000
@@ -48,29 +85,63 @@ async def _seed_photos(
 
 
 class _Env:
-    def __init__(self, manager: CollectionManager, photo_ids: list[uuid.UUID]) -> None:
+    def __init__(
+        self,
+        manager: CollectionManager,
+        photo_ids: list[uuid.UUID],
+        photo_repo: PhotoRepository,
+        library_root_id: uuid.UUID,
+    ) -> None:
         self.manager = manager
         self.photo_ids = photo_ids
+        self.photo_repo = photo_repo
+        self.library_root_id = library_root_id
+
+    async def add_photo(self, relative_path: str) -> uuid.UUID:
+        now = datetime.now(timezone.utc)  # noqa: UP017 -- kept pre-3.11 alias pending broader migration
+        photo = await self.photo_repo.create(
+            Photo(
+                library_root_id=self.library_root_id,
+                relative_path=relative_path,
+                relative_path_folded=relative_path.lower(),
+                size_bytes=1,
+                file_mtime=now,
+                status="active",
+            )
+        )
+        return photo.id
 
 
 @pytest.fixture
 async def env(tmp_path: Path) -> AsyncIterator[_Env]:
-    engine = create_engine(tmp_path / "collections.db")
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    db_path = tmp_path / "collections.db"
+    await asyncio.to_thread(command.upgrade, _alembic_config(db_path), "head")
+
+    engine = create_engine(db_path)
     writer = WriteConnection(engine)
     sessions = create_session_factory(engine)
 
     library_root_repo = LibraryRootRepository(sessions, writer)
+    photo_repo = PhotoRepository(sessions, writer)
     root = await library_root_repo.create(LibraryRoot(path="/library"))
     photo_ids = await _seed_photos(writer, root.id, _PHOTO_COUNT)
 
+    search_service = DefaultSearchService(
+        text_index=FtsTextSearchIndex(sessions),
+        embedding_index=SqliteVecEmbeddingIndex(sessions, writer),
+        embedding_service=_UnusedEmbeddingService(),
+        read_sessions=sessions,
+        default_embedding_provider="clip",
+    )
     manager = CollectionManager(
-        CollectionRepository(sessions, writer), CollectionItemRepository(sessions, writer)
+        CollectionRepository(sessions, writer),
+        CollectionItemRepository(sessions, writer),
+        SmartCollectionRuleRepository(sessions, writer),
+        search_service,
     )
 
     try:
-        yield _Env(manager, photo_ids)
+        yield _Env(manager, photo_ids, photo_repo, root.id)
     finally:
         await writer.close()
         await engine.dispose()
@@ -150,3 +221,61 @@ async def test_adding_10000_photos_performs_zero_filesystem_writes(
     assert len(await env.manager.list_members(collection.id, limit=_PHOTO_COUNT, offset=0)) == (
         _PHOTO_COUNT
     )
+
+
+async def test_create_smart_returns_a_smart_collection(env: _Env) -> None:
+    collection = await env.manager.create_smart(
+        "Sunsets", SearchQueryRequest(text="sunset", mode="text")
+    )
+
+    assert collection.name == "Sunsets"
+    assert collection.type == "smart"
+
+
+async def test_evaluate_smart_returns_photos_matching_the_saved_query(env: _Env) -> None:
+    matching_id = await env.add_photo("sunset-beach.jpg")
+    await env.add_photo("receipt-scan.jpg")
+    collection = await env.manager.create_smart(
+        "Sunsets", SearchQueryRequest(text="sunset", mode="text")
+    )
+
+    members = await env.manager.list_members(collection.id, limit=10, offset=0)
+
+    assert members == [matching_id]
+
+
+async def test_evaluate_smart_reflects_a_newly_indexed_matching_photo_without_refresh(
+    env: _Env,
+) -> None:
+    """FEAT-072's acceptance criterion: a smart collection's membership
+    updates immediately after a new matching photo is indexed, with no
+    manual refresh action -- because it's evaluated live, not cached.
+    """
+    collection = await env.manager.create_smart(
+        "Sunsets", SearchQueryRequest(text="sunset", mode="text")
+    )
+    assert await env.manager.list_members(collection.id, limit=10, offset=0) == []
+
+    new_photo_id = await env.add_photo("sunset-cliff.jpg")
+
+    members = await env.manager.list_members(collection.id, limit=10, offset=0)
+    assert members == [new_photo_id]
+
+
+async def test_evaluate_smart_of_unknown_collection_raises(env: _Env) -> None:
+    with pytest.raises(UnknownCollectionError):
+        await env.manager.evaluate_smart(uuid.uuid4(), limit=10, offset=0)
+
+
+async def test_list_collections_reports_a_live_item_count_for_smart_collections(
+    env: _Env,
+) -> None:
+    await env.add_photo("sunset-1.jpg")
+    await env.add_photo("sunset-2.jpg")
+    await env.manager.create_smart("Sunsets", SearchQueryRequest(text="sunset", mode="text"))
+
+    summaries = await env.manager.list_collections()
+
+    assert len(summaries) == 1
+    assert summaries[0].type == "smart"
+    assert summaries[0].item_count == 2

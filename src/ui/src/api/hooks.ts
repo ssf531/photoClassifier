@@ -184,9 +184,12 @@ export function useCollections() {
 export function useCreateCollection() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (name: string) => {
+    mutationFn: async (body: {
+      name: string;
+      search_query?: SearchQueryRequest;
+    }) => {
       const { data, error } = await apiClient.POST("/api/v1/collections", {
-        body: { name },
+        body,
       });
       if (error) throw error;
       return data;

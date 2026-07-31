@@ -286,6 +286,7 @@ export interface components {
     CollectionCreateRequest: {
       /** Name */
       name: string;
+      search_query?: components["schemas"]["SearchQueryRequest"] | null;
     };
     /** CollectionListResponse */
     CollectionListResponse: {

@@ -1,17 +1,17 @@
 // @vitest-environment jsdom
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactElement } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { apiClient } from "../api/client";
 import { PhotoDetail } from "./PhotoDetail";
 
 // openapi-fetch snapshots `fetch` once when the client is created, so
 // stubbing global fetch after import has no effect; mocking the client's
-// own GET method is the reliable seam for this component's data layer.
+// own GET/POST methods is the reliable seam for this component's data layer.
 vi.mock("../api/client", () => ({
-  apiClient: { GET: vi.fn() },
+  apiClient: { GET: vi.fn(), POST: vi.fn() },
 }));
 
 window.__LAUNCH_TOKEN__ = "test-token";
@@ -73,6 +73,10 @@ function mockGetResponse(data: unknown): void {
 }
 
 describe("PhotoDetail", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it("renders caption, tags, and quality score for a fully-analyzed photo", async () => {
     mockGetResponse(DETAIL_RESPONSE);
 
@@ -90,5 +94,63 @@ describe("PhotoDetail", () => {
     renderWithClient(<PhotoDetail photoId="photo-1" />);
 
     await waitFor(() => screen.getByText("Not analyzed yet."));
+  });
+
+  it("shows a message when no collections exist to add the photo to", async () => {
+    vi.mocked(apiClient.GET).mockImplementation(async (path: string) => {
+      const data =
+        path === "/api/v1/collections" ? { items: [] } : DETAIL_RESPONSE;
+      return { data, error: undefined, response: new Response() };
+    });
+
+    renderWithClient(<PhotoDetail photoId="photo-1" />);
+
+    await waitFor(() =>
+      screen.getByText(
+        "No collections yet -- create one on the Collections page.",
+      ),
+    );
+  });
+
+  it("adds the current photo to the selected collection", async () => {
+    vi.mocked(apiClient.GET).mockImplementation(async (path: string) => {
+      const data =
+        path === "/api/v1/collections"
+          ? {
+              items: [
+                {
+                  id: "coll-1",
+                  name: "Trip",
+                  type: "virtual",
+                  created_at: "2024-01-01T00:00:00Z",
+                  item_count: 0,
+                },
+              ],
+            }
+          : DETAIL_RESPONSE;
+      return { data, error: undefined, response: new Response() };
+    });
+    vi.mocked(apiClient.POST).mockResolvedValue({
+      data: null,
+      error: undefined,
+      response: new Response(),
+    });
+
+    renderWithClient(<PhotoDetail photoId="photo-1" />);
+
+    await waitFor(() => screen.getByLabelText("Add to collection"));
+    fireEvent.change(screen.getByLabelText("Add to collection"), {
+      target: { value: "coll-1" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+
+    await waitFor(() => screen.getByText("Added."));
+    expect(apiClient.POST).toHaveBeenCalledWith(
+      "/api/v1/collections/{collection_id}/members",
+      {
+        params: { path: { collection_id: "coll-1" } },
+        body: { photo_ids: ["photo-1"] },
+      },
+    );
   });
 });

@@ -16,6 +16,7 @@ export type SearchResultItem = components["schemas"]["SearchResultItem"];
 export type AppSettings = components["schemas"]["AppSettings"];
 export type SettingsPatch = components["schemas"]["SettingsPatch"];
 export type PluginSummary = components["schemas"]["PluginSummary"];
+export type CollectionSummary = components["schemas"]["CollectionSummary"];
 
 const PHOTO_LIST_PAGE_SIZE = 200;
 
@@ -165,6 +166,76 @@ export function useTriggerScan() {
       });
       if (error) throw error;
       return data;
+    },
+  });
+}
+
+export function useCollections() {
+  return useQuery({
+    queryKey: ["collections"],
+    queryFn: async () => {
+      const { data, error } = await apiClient.GET("/api/v1/collections");
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
+export function useCreateCollection() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (name: string) => {
+      const { data, error } = await apiClient.POST("/api/v1/collections", {
+        body: { name },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["collections"] });
+    },
+  });
+}
+
+export function useCollectionMembers(collectionId: string) {
+  return useQuery({
+    queryKey: ["collection-members", collectionId],
+    queryFn: async () => {
+      const { data, error } = await apiClient.GET(
+        "/api/v1/collections/{collection_id}/members",
+        { params: { path: { collection_id: collectionId } } },
+      );
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
+export function useAddCollectionMembers() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      collectionId,
+      photoIds,
+    }: {
+      collectionId: string;
+      photoIds: string[];
+    }) => {
+      const { data, error } = await apiClient.POST(
+        "/api/v1/collections/{collection_id}/members",
+        {
+          params: { path: { collection_id: collectionId } },
+          body: { photo_ids: photoIds },
+        },
+      );
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_data, variables) => {
+      void queryClient.invalidateQueries({ queryKey: ["collections"] });
+      void queryClient.invalidateQueries({
+        queryKey: ["collection-members", variables.collectionId],
+      });
     },
   });
 }

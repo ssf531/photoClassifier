@@ -12,6 +12,13 @@ from core.api.auth import (
     make_bearer_or_query_token_dependency,
     make_bearer_token_dependency,
 )
+from core.domain.collections import (
+    AddCollectionMembersRequest,
+    CollectionCreateRequest,
+    CollectionListResponse,
+    CollectionMembersResponse,
+    CollectionSummary,
+)
 from core.domain.library import (
     AiResultSummary,
     LibraryRootCreateRequest,
@@ -35,6 +42,7 @@ from core.domain.settings import AppSettings, SettingsPatch, SettingsService
 from core.domain.thumbnails import ThumbSize
 from core.domain.version import CORE_API_VERSION, HealthResponse, VersionResponse
 from core.infrastructure.ai_result_repository import AiResultRepository
+from core.infrastructure.collection_manager import CollectionManager, UnknownCollectionError
 from core.infrastructure.db.library_models import LibraryRoot
 from core.infrastructure.library_repository import LibraryRootRepository, PhotoRepository
 from core.infrastructure.metadata_repository import MetadataRepository
@@ -49,6 +57,8 @@ from core.infrastructure.thumbnail_service import (
 _MAX_PLUGIN_LIST_LIMIT = 500
 
 _MAX_PHOTO_LIST_LIMIT = 500
+
+_MAX_COLLECTION_MEMBERS_LIMIT = 500
 
 UI_DIST_DIR = Path(__file__).resolve().parents[3] / "src" / "ui" / "dist"
 
@@ -96,6 +106,7 @@ def create_app(
     settings_service: SettingsService | None = None,
     plugin_repo: PluginRepository | None = None,
     library_root_repo: LibraryRootRepository | None = None,
+    collection_manager: CollectionManager | None = None,
     ui_dist_dir: Path = UI_DIST_DIR,
 ) -> FastAPI:
     launch_token = token or generate_launch_token()
@@ -114,6 +125,7 @@ def create_app(
     app.state.settings_service = settings_service
     app.state.plugin_repo = plugin_repo
     app.state.library_root_repo = library_root_repo
+    app.state.collection_manager = collection_manager
 
     @app.get("/health", dependencies=[Depends(require_bearer_token)])
     def health() -> HealthResponse:
@@ -283,6 +295,66 @@ def create_app(
             JobSpec(job_type=SCAN_JOB_TYPE, params={"library_root_id": str(body.library_root_id)})
         )
         return ScanResponse(job_id=job_id)
+
+    @app.get("/api/v1/collections", dependencies=[Depends(require_bearer_token)])
+    async def list_collections(request: Request) -> CollectionListResponse:
+        manager = request.app.state.collection_manager
+        if manager is None:
+            raise HTTPException(status_code=503, detail="collection manager not configured")
+        return CollectionListResponse(items=await manager.list_collections())
+
+    @app.post("/api/v1/collections", dependencies=[Depends(require_bearer_token)])
+    async def create_collection(
+        body: CollectionCreateRequest, request: Request
+    ) -> CollectionSummary:
+        manager = request.app.state.collection_manager
+        if manager is None:
+            raise HTTPException(status_code=503, detail="collection manager not configured")
+        collection = await manager.create(body.name)
+        return CollectionSummary(
+            id=collection.id,
+            name=collection.name,
+            type=collection.type,
+            created_at=collection.created_at,
+            item_count=0,
+        )
+
+    @app.post(
+        "/api/v1/collections/{collection_id}/members",
+        dependencies=[Depends(require_bearer_token)],
+    )
+    async def add_collection_members(
+        collection_id: uuid.UUID, body: AddCollectionMembersRequest, request: Request
+    ) -> None:
+        manager = request.app.state.collection_manager
+        if manager is None:
+            raise HTTPException(status_code=503, detail="collection manager not configured")
+        try:
+            await manager.add_members(collection_id, body.photo_ids)
+        except UnknownCollectionError as exc:
+            raise HTTPException(status_code=404, detail="collection not found") from exc
+
+    @app.get(
+        "/api/v1/collections/{collection_id}/members",
+        dependencies=[Depends(require_bearer_token)],
+    )
+    async def list_collection_members(
+        collection_id: uuid.UUID, request: Request, limit: int = 100, offset: int = 0
+    ) -> CollectionMembersResponse:
+        manager = request.app.state.collection_manager
+        if manager is None:
+            raise HTTPException(status_code=503, detail="collection manager not configured")
+        if not 1 <= limit <= _MAX_COLLECTION_MEMBERS_LIMIT:
+            raise HTTPException(
+                status_code=422,
+                detail=f"limit must be between 1 and {_MAX_COLLECTION_MEMBERS_LIMIT}",
+            )
+        try:
+            photo_ids = await manager.list_members(collection_id, limit=limit, offset=offset)
+        except UnknownCollectionError as exc:
+            raise HTTPException(status_code=404, detail="collection not found") from exc
+        next_offset = offset + limit if len(photo_ids) == limit else None
+        return CollectionMembersResponse(photo_ids=photo_ids, next_offset=next_offset)
 
     @app.get("/api/v1/thumbnails/{photo_id}", dependencies=[Depends(require_bearer_or_query_token)])
     async def get_thumbnail(photo_id: uuid.UUID, size: ThumbSize, request: Request) -> Response:

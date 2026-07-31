@@ -1,6 +1,8 @@
 import uuid
+from collections.abc import Sequence
 
-from sqlalchemy import select
+from sqlalchemy import func, select
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from core.infrastructure.db.collection_models import (
@@ -11,6 +13,8 @@ from core.infrastructure.db.collection_models import (
 )
 from core.infrastructure.db.repository import SqlAlchemyRepository
 from core.infrastructure.db.write_connection import WriteConnection
+
+_BULK_ADD_BATCH_SIZE = 300
 
 
 class UserDataRepository:
@@ -66,11 +70,52 @@ class SmartCollectionRuleRepository:
 class CollectionItemRepository(SqlAlchemyRepository[CollectionItem]):
     model = CollectionItem
 
-    async def list_by_collection(self, collection_id: uuid.UUID) -> list[CollectionItem]:
+    async def list_by_collection(
+        self, collection_id: uuid.UUID, *, limit: int, offset: int
+    ) -> list[CollectionItem]:
         async with self._read_sessions() as session:
             result = await session.execute(
                 select(CollectionItem)
                 .where(CollectionItem.collection_id == collection_id)
                 .order_by(CollectionItem.id)
+                .limit(limit)
+                .offset(offset)
             )
             return list(result.scalars().all())
+
+    async def count_by_collection(self, collection_id: uuid.UUID) -> int:
+        async with self._read_sessions() as session:
+            result = await session.execute(
+                select(func.count())
+                .select_from(CollectionItem)
+                .where(CollectionItem.collection_id == collection_id)
+            )
+            return result.scalar_one()
+
+    async def bulk_add(self, collection_id: uuid.UUID, photo_ids: Sequence[uuid.UUID]) -> None:
+        """Multi-row `INSERT ... ON CONFLICT DO NOTHING` batches, all in one
+        transaction (SDD §4.8: "membership never implies file movement") --
+        adding thousands of photos is a handful of DB writes, not one
+        `create()` call per photo. Batched below SQLite's bound-parameter
+        limit (3 columns/row; the oldest supported build caps at 999 total).
+        """
+        if not photo_ids:
+            return
+        async with self._writer.transaction() as connection:
+            for start in range(0, len(photo_ids), _BULK_ADD_BATCH_SIZE):
+                batch = photo_ids[start : start + _BULK_ADD_BATCH_SIZE]
+                stmt = (
+                    sqlite_insert(CollectionItem)
+                    .values(
+                        [
+                            {
+                                "id": uuid.uuid4(),
+                                "collection_id": collection_id,
+                                "photo_id": photo_id,
+                            }
+                            for photo_id in batch
+                        ]
+                    )
+                    .on_conflict_do_nothing(index_elements=["collection_id", "photo_id"])
+                )
+                await connection.execute(stmt)

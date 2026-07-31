@@ -175,6 +175,42 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/collections": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Collections */
+    get: operations["list_collections_api_v1_collections_get"];
+    put?: never;
+    /** Create Collection */
+    post: operations["create_collection_api_v1_collections_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/collections/{collection_id}/members": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Collection Members */
+    get: operations["list_collection_members_api_v1_collections__collection_id__members_get"];
+    put?: never;
+    /** Add Collection Members */
+    post: operations["add_collection_members_api_v1_collections__collection_id__members_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/thumbnails/{photo_id}": {
     parameters: {
       query?: never;
@@ -196,6 +232,11 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** AddCollectionMembersRequest */
+    AddCollectionMembersRequest: {
+      /** Photo Ids */
+      photo_ids: string[];
+    };
     /** AiResultSummary */
     AiResultSummary: {
       /** Capability */
@@ -240,6 +281,42 @@ export interface components {
        * @default 1024
        */
       thumbnail_preview_size_px: number;
+    };
+    /** CollectionCreateRequest */
+    CollectionCreateRequest: {
+      /** Name */
+      name: string;
+    };
+    /** CollectionListResponse */
+    CollectionListResponse: {
+      /** Items */
+      items: components["schemas"]["CollectionSummary"][];
+    };
+    /** CollectionMembersResponse */
+    CollectionMembersResponse: {
+      /** Photo Ids */
+      photo_ids: string[];
+      /** Next Offset */
+      next_offset: number | null;
+    };
+    /** CollectionSummary */
+    CollectionSummary: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Name */
+      name: string;
+      /** Type */
+      type: string;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Item Count */
+      item_count: number;
     };
     /** DateRangeRequest */
     DateRangeRequest: {
@@ -824,6 +901,145 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ScanResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_collections_api_v1_collections_get: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CollectionListResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  create_collection_api_v1_collections_post: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CollectionCreateRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CollectionSummary"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_collection_members_api_v1_collections__collection_id__members_get: {
+    parameters: {
+      query?: {
+        limit?: number;
+        offset?: number;
+      };
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        collection_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CollectionMembersResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  add_collection_members_api_v1_collections__collection_id__members_post: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        collection_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AddCollectionMembersRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
         };
       };
       /** @description Validation Error */

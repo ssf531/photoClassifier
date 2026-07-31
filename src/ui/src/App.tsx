@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Link, Route, Routes } from "react-router-dom";
 
 import { ProgressSocketProvider } from "./api/ProgressSocketContext";
+import { CollectionsPage } from "./routes/CollectionsPage";
 import { GridPage } from "./routes/GridPage";
 import { OnboardingPage } from "./routes/OnboardingPage";
 import { PhotoDetailRoute } from "./routes/PhotoDetailRoute";
@@ -22,6 +23,7 @@ export function App(): React.JSX.Element {
             <Link to="/search">Search</Link>
             <Link to="/settings">Settings</Link>
             <Link to="/plugins">Plugins</Link>
+            <Link to="/collections">Collections</Link>
             <Link to="/onboarding">Onboarding</Link>
           </nav>
           <Routes>
@@ -29,6 +31,7 @@ export function App(): React.JSX.Element {
             <Route path="/search" element={<SearchPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/plugins" element={<PluginsPage />} />
+            <Route path="/collections" element={<CollectionsPage />} />
             <Route path="/onboarding" element={<OnboardingPage />} />
             <Route path="/photo/:photoId" element={<PhotoDetailRoute />} />
           </Routes>

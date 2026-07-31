@@ -140,8 +140,21 @@ async def test_collection_item_create_and_list_by_collection(env: _Env) -> None:
     await env.items.create(CollectionItem(collection_id=collection.id, photo_id=env.photo_id))
     await env.items.create(CollectionItem(collection_id=collection.id, photo_id=env.other_photo_id))
 
-    members = await env.items.list_by_collection(collection.id)
+    members = await env.items.list_by_collection(collection.id, limit=10, offset=0)
     assert {m.photo_id for m in members} == {env.photo_id, env.other_photo_id}
+
+
+async def test_collection_item_list_by_collection_paginates(env: _Env) -> None:
+    collection = await env.collections.create(Collection(name="Trip", type="virtual"))
+    await env.items.create(CollectionItem(collection_id=collection.id, photo_id=env.photo_id))
+    await env.items.create(CollectionItem(collection_id=collection.id, photo_id=env.other_photo_id))
+
+    first_page = await env.items.list_by_collection(collection.id, limit=1, offset=0)
+    second_page = await env.items.list_by_collection(collection.id, limit=1, offset=1)
+
+    assert len(first_page) == 1
+    assert len(second_page) == 1
+    assert first_page[0].photo_id != second_page[0].photo_id
 
 
 async def test_collection_item_rejects_duplicate_membership(env: _Env) -> None:
@@ -150,3 +163,29 @@ async def test_collection_item_rejects_duplicate_membership(env: _Env) -> None:
 
     with pytest.raises(IntegrityError):
         await env.items.create(CollectionItem(collection_id=collection.id, photo_id=env.photo_id))
+
+
+async def test_collection_item_count_by_collection(env: _Env) -> None:
+    collection = await env.collections.create(Collection(name="Trip", type="virtual"))
+    assert await env.items.count_by_collection(collection.id) == 0
+
+    await env.items.create(CollectionItem(collection_id=collection.id, photo_id=env.photo_id))
+    assert await env.items.count_by_collection(collection.id) == 1
+
+
+async def test_collection_item_bulk_add_is_idempotent_for_existing_members(env: _Env) -> None:
+    collection = await env.collections.create(Collection(name="Trip", type="virtual"))
+    await env.items.create(CollectionItem(collection_id=collection.id, photo_id=env.photo_id))
+
+    await env.items.bulk_add(collection.id, [env.photo_id, env.other_photo_id])
+
+    members = await env.items.list_by_collection(collection.id, limit=10, offset=0)
+    assert {m.photo_id for m in members} == {env.photo_id, env.other_photo_id}
+
+
+async def test_collection_item_bulk_add_with_empty_list_is_a_no_op(env: _Env) -> None:
+    collection = await env.collections.create(Collection(name="Trip", type="virtual"))
+
+    await env.items.bulk_add(collection.id, [])
+
+    assert await env.items.count_by_collection(collection.id) == 0

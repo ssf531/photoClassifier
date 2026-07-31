@@ -1,11 +1,65 @@
+import { useState } from "react";
 import type React from "react";
 
 import type { AiResultSummary } from "../api/hooks";
-import { usePhotoDetail } from "../api/hooks";
+import {
+  useAddCollectionMembers,
+  useCollections,
+  usePhotoDetail,
+} from "../api/hooks";
 import { thumbnailUrl } from "../api/thumbnailUrl";
 
 export interface PhotoDetailProps {
   photoId: string;
+}
+
+function AddToCollection({ photoId }: { photoId: string }): React.JSX.Element {
+  const { data: collections } = useCollections();
+  const addMembers = useAddCollectionMembers();
+  const [selectedId, setSelectedId] = useState("");
+  const [added, setAdded] = useState(false);
+
+  const items = collections?.items ?? [];
+  if (items.length === 0) {
+    return <p>No collections yet -- create one on the Collections page.</p>;
+  }
+
+  const handleAdd = (): void => {
+    if (!selectedId) {
+      return;
+    }
+    addMembers.mutate(
+      { collectionId: selectedId, photoIds: [photoId] },
+      { onSuccess: () => setAdded(true) },
+    );
+  };
+
+  return (
+    <div>
+      <label>
+        Add to collection
+        <select
+          aria-label="Add to collection"
+          value={selectedId}
+          onChange={(event) => {
+            setSelectedId(event.target.value);
+            setAdded(false);
+          }}
+        >
+          <option value="">Choose a collection</option>
+          {items.map((collection) => (
+            <option key={collection.id} value={collection.id}>
+              {collection.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <button type="button" onClick={handleAdd} disabled={!selectedId}>
+        Add
+      </button>
+      {added && <span> Added.</span>}
+    </div>
+  );
 }
 
 function CaptionResult({
@@ -90,6 +144,7 @@ export function PhotoDetail({ photoId }: PhotoDetailProps): React.JSX.Element {
         style={{ maxWidth: "100%" }}
       />
       <h2>{data.relative_path}</h2>
+      <AddToCollection photoId={photoId} />
       <dl>
         <dt>Camera</dt>
         <dd>

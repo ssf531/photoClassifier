@@ -26,6 +26,7 @@ export type Recommendation = components["schemas"]["Recommendation"];
 export type DuplicateGroupSummary =
   components["schemas"]["DuplicateGroupSummary"];
 export type BuiltinFilterPreset = components["schemas"]["BuiltinFilterPreset"];
+export type ProblemGroup = components["schemas"]["ProblemGroup"];
 
 const PHOTO_LIST_PAGE_SIZE = 200;
 
@@ -339,6 +340,49 @@ export function useCopyToFolder() {
       });
       if (error) throw error;
       return data;
+    },
+  });
+}
+
+export function useProblems() {
+  return useQuery({
+    queryKey: ["problems"],
+    queryFn: async () => {
+      const { data, error } = await apiClient.GET("/api/v1/problems");
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
+export function useRetryProblems() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (photoIds: string[]) => {
+      const { data, error } = await apiClient.POST("/api/v1/problems/retry", {
+        body: { photo_ids: photoIds },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["problems"] });
+    },
+  });
+}
+
+export function useIgnoreProblems() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (photoIds: string[]) => {
+      const { data, error } = await apiClient.POST("/api/v1/problems/ignore", {
+        body: { photo_ids: photoIds },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["problems"] });
     },
   });
 }

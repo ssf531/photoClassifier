@@ -34,6 +34,12 @@ from core.domain.library import (
     ScanResponse,
 )
 from core.domain.plugins import PluginListResponse, PluginSummary, PluginUpdateRequest
+from core.domain.problems import (
+    IgnoreProblemsRequest,
+    ProblemListResponse,
+    RetryProblemsRequest,
+    RetryProblemsResponse,
+)
 from core.domain.recommendations import RecommendationListResponse
 from core.domain.scheduler import JobProgress, JobSpec, TaskScheduler
 from core.domain.search import (
@@ -56,6 +62,7 @@ from core.infrastructure.export_presets import UnknownPresetError, get_preset
 from core.infrastructure.library_repository import LibraryRootRepository, PhotoRepository
 from core.infrastructure.metadata_repository import MetadataRepository
 from core.infrastructure.plugin_repository import PluginRepository
+from core.infrastructure.problems_service import ProblemsService
 from core.infrastructure.recommendation_engine import RecommendationEngine
 from core.infrastructure.scan_job import SCAN_JOB_TYPE
 from core.infrastructure.thumbnail_service import (
@@ -124,6 +131,7 @@ def create_app(
     duplicate_review_service: DuplicateReviewService | None = None,
     xmp_export_manager: XmpExportManager | None = None,
     copy_export_manager: CopyExportManager | None = None,
+    problems_service: ProblemsService | None = None,
     ui_dist_dir: Path = UI_DIST_DIR,
 ) -> FastAPI:
     launch_token = token or generate_launch_token()
@@ -147,6 +155,7 @@ def create_app(
     app.state.duplicate_review_service = duplicate_review_service
     app.state.xmp_export_manager = xmp_export_manager
     app.state.copy_export_manager = copy_export_manager
+    app.state.problems_service = problems_service
 
     @app.get("/health", dependencies=[Depends(require_bearer_token)])
     def health() -> HealthResponse:
@@ -446,6 +455,28 @@ def create_app(
             raise HTTPException(status_code=503, detail="copy export manager not configured")
         items = await manager.copy_to_folder(body.photo_ids, body.destination_folder)
         return CopyReport(items=items)
+
+    @app.get("/api/v1/problems", dependencies=[Depends(require_bearer_token)])
+    async def list_problems(request: Request) -> ProblemListResponse:
+        service = request.app.state.problems_service
+        if service is None:
+            raise HTTPException(status_code=503, detail="problems service not configured")
+        return ProblemListResponse(groups=await service.list_problems())
+
+    @app.post("/api/v1/problems/retry", dependencies=[Depends(require_bearer_token)])
+    async def retry_problems(body: RetryProblemsRequest, request: Request) -> RetryProblemsResponse:
+        service = request.app.state.problems_service
+        if service is None:
+            raise HTTPException(status_code=503, detail="problems service not configured")
+        job_id = await service.retry(body.photo_ids)
+        return RetryProblemsResponse(job_id=str(job_id))
+
+    @app.post("/api/v1/problems/ignore", dependencies=[Depends(require_bearer_token)])
+    async def ignore_problems(body: IgnoreProblemsRequest, request: Request) -> None:
+        service = request.app.state.problems_service
+        if service is None:
+            raise HTTPException(status_code=503, detail="problems service not configured")
+        await service.ignore(body.photo_ids)
 
     @app.get("/api/v1/thumbnails/{photo_id}", dependencies=[Depends(require_bearer_or_query_token)])
     async def get_thumbnail(photo_id: uuid.UUID, size: ThumbSize, request: Request) -> Response:

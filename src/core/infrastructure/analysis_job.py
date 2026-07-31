@@ -72,8 +72,24 @@ def create_analysis_job_handler(
                 continue
 
             image = await _resolve_image(photo_repo, library_root_repo, photo_id)
-            if image is not None:
-                await pipeline.run_batch([image], capabilities)
-            await ctx.complete_item(index, total, file_id=photo_id)
+            if image is None:
+                await ctx.fail_item(
+                    index,
+                    total,
+                    "photo_not_found",
+                    f"photo {photo_id} could not be resolved to a file on disk",
+                    file_id=photo_id,
+                )
+                continue
+
+            report = await pipeline.run_batch([image], capabilities)
+            if report.failures:
+                first = report.failures[0]
+                message = first.error_message
+                if len(report.failures) > 1:
+                    message = f"{message} (+{len(report.failures) - 1} more capability failure(s))"
+                await ctx.fail_item(index, total, first.error_code, message, file_id=photo_id)
+            else:
+                await ctx.complete_item(index, total, file_id=photo_id)
 
     return handler

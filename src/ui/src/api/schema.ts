@@ -313,6 +313,57 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/problems": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Problems */
+    get: operations["list_problems_api_v1_problems_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/problems/retry": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Retry Problems */
+    post: operations["retry_problems_api_v1_problems_retry_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/problems/ignore": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Ignore Problems */
+    post: operations["ignore_problems_api_v1_problems_ignore_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/thumbnails/{photo_id}": {
     parameters: {
       query?: never;
@@ -559,6 +610,11 @@ export interface components {
       /** Status */
       status: string;
     };
+    /** IgnoreProblemsRequest */
+    IgnoreProblemsRequest: {
+      /** Photo Ids */
+      photo_ids: string[];
+    };
     /** LibraryRootCreateRequest */
     LibraryRootCreateRequest: {
       /** Path */
@@ -655,6 +711,28 @@ export interface components {
       /** Enabled */
       enabled: boolean;
     };
+    /** ProblemGroup */
+    ProblemGroup: {
+      /** Error Code */
+      error_code: string;
+      /** Items */
+      items: components["schemas"]["ProblemItem"][];
+    };
+    /** ProblemItem */
+    ProblemItem: {
+      /**
+       * Photo Id
+       * Format: uuid
+       */
+      photo_id: string;
+      /** Error Message */
+      error_message: string;
+    };
+    /** ProblemListResponse */
+    ProblemListResponse: {
+      /** Groups */
+      groups: components["schemas"]["ProblemGroup"][];
+    };
     /** Recommendation */
     Recommendation: {
       category: components["schemas"]["RecommendationCategory"];
@@ -676,6 +754,16 @@ export interface components {
     RecommendationListResponse: {
       /** Items */
       items: components["schemas"]["Recommendation"][];
+    };
+    /** RetryProblemsRequest */
+    RetryProblemsRequest: {
+      /** Photo Ids */
+      photo_ids: string[];
+    };
+    /** RetryProblemsResponse */
+    RetryProblemsResponse: {
+      /** Job Id */
+      job_id: string;
     };
     /** ScanRequest */
     ScanRequest: {
@@ -1506,6 +1594,107 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["CopyReport"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_problems_api_v1_problems_get: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemListResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  retry_problems_api_v1_problems_retry_post: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RetryProblemsRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RetryProblemsResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  ignore_problems_api_v1_problems_ignore_post: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["IgnoreProblemsRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
         };
       };
       /** @description Validation Error */

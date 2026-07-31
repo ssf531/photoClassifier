@@ -25,9 +25,15 @@ class Job(HasId):
 
 class JobItem(HasId):
     __tablename__ = "job_item"
-    __table_args__ = (Index("ix_job_item_job_status", "job_id", "status"),)
+    __table_args__ = (
+        Index("ix_job_item_job_status", "job_id", "status"),
+        Index("ix_job_item_error_code", "error_code"),
+    )
 
     job_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("job.id"))
     file_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     status: Mapped[str] = mapped_column(String)
+    error_code: Mapped[str | None] = mapped_column(String, nullable=True)
     error_message: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=_utcnow)
+    ignored_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)

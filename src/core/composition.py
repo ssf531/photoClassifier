@@ -46,6 +46,7 @@ from core.infrastructure.metadata_repository import MetadataRepository
 from core.infrastructure.plugin_discovery import discover_plugins
 from core.infrastructure.plugin_lifecycle import list_enabled_manifests, sync_discovered_plugins
 from core.infrastructure.plugin_repository import PluginRepository
+from core.infrastructure.problems_service import ProblemsService
 from core.infrastructure.provider_registry import ProviderRegistry
 from core.infrastructure.quality_provider import QualityAssessmentProvider
 from core.infrastructure.recommendation_engine import RecommendationEngine
@@ -190,6 +191,9 @@ async def compose(**settings_overrides: Any) -> Composition:
             capabilities=list(provider_registry.capabilities()),
         ),
     )
+    problems_service = ProblemsService(
+        job_item_repo, scheduler, list(provider_registry.capabilities())
+    )
 
     vec_index = SqliteVecEmbeddingIndex(sessions, writer)
     embedding_service = DefaultEmbeddingService(
@@ -252,6 +256,7 @@ async def compose(**settings_overrides: Any) -> Composition:
         duplicate_review_service=duplicate_review_service,
         xmp_export_manager=xmp_export_manager,
         copy_export_manager=copy_export_manager,
+        problems_service=problems_service,
     )
 
     return Composition(settings=settings, scheduler=scheduler, app=app)

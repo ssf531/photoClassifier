@@ -1,6 +1,7 @@
 import asyncio
 import uuid
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import select
@@ -8,6 +9,10 @@ from sqlalchemy import select
 from core.domain.scheduler import JobID, JobProgress, JobSpec, JobStatus
 from core.infrastructure.db.job_models import Job, JobItem
 from core.infrastructure.db.repository import SqlAlchemyRepository
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)  # noqa: UP017 -- kept pre-3.11 alias pending broader migration
 
 
 class JobRepository(SqlAlchemyRepository[Job]):
@@ -39,6 +44,40 @@ class JobItemRepository(SqlAlchemyRepository[JobItem]):
             )
             return list(result.scalars().all())
 
+    async def has_failed_item(self, job_id: JobID) -> bool:
+        """Used on resume-after-crash (SDD §11.2) to correctly re-seed
+        `JobContext.has_failures()`: a job that already recorded a failure
+        before the crash must still resolve to `PARTIALLY_COMPLETED`, not
+        `COMPLETED`, once resumed."""
+        async with self._read_sessions() as session:
+            result = await session.execute(
+                select(JobItem.id)
+                .where(JobItem.job_id == job_id, JobItem.status == "failed")
+                .limit(1)
+            )
+            return result.scalar_one_or_none() is not None
+
+    async def list_failed(self, *, limit: int, offset: int) -> list[JobItem]:
+        """Every not-yet-ignored failed job_item across all jobs, most
+        recent first (SDD §16.3's Problems view)."""
+        async with self._read_sessions() as session:
+            result = await session.execute(
+                select(JobItem)
+                .where(JobItem.status == "failed", JobItem.ignored_at.is_(None))
+                .order_by(JobItem.created_at.desc())
+                .limit(limit)
+                .offset(offset)
+            )
+            return list(result.scalars().all())
+
+    async def mark_ignored(self, job_item_ids: Sequence[uuid.UUID]) -> None:
+        now = _utcnow()
+        for job_item_id in job_item_ids:
+            item = await self.get(job_item_id)
+            if item is not None:
+                item.ignored_at = now
+                await self.update(item)
+
 
 class JobContext:
     def __init__(
@@ -48,20 +87,46 @@ class JobContext:
         cancel_event: asyncio.Event,
         item_repo: JobItemRepository,
         report_progress: Callable[[float], Awaitable[None]],
+        *,
+        had_prior_failures: bool = False,
     ) -> None:
         self.job_id = job_id
         self.params = params
         self._cancel_event = cancel_event
         self._item_repo = item_repo
         self._report_progress = report_progress
+        self._had_failures = had_prior_failures
 
     def is_cancelled(self) -> bool:
         return self._cancel_event.is_set()
+
+    def has_failures(self) -> bool:
+        return self._had_failures
 
     async def complete_item(self, index: int, total: int, file_id: uuid.UUID | None = None) -> None:
         await self._item_repo.create(
             JobItem(job_id=self.job_id, file_id=file_id, status="completed")
         )
+        await self._report_progress((index + 1) / total * 100)
+
+    async def fail_item(
+        self,
+        index: int,
+        total: int,
+        error_code: str,
+        error_message: str,
+        file_id: uuid.UUID | None = None,
+    ) -> None:
+        await self._item_repo.create(
+            JobItem(
+                job_id=self.job_id,
+                file_id=file_id,
+                status="failed",
+                error_code=error_code,
+                error_message=error_message,
+            )
+        )
+        self._had_failures = True
         await self._report_progress((index + 1) / total * 100)
 
 
@@ -167,7 +232,15 @@ class InProcessTaskScheduler:
         async def report_progress(pct: float) -> None:
             await self._set_status(job_id, JobStatus.RUNNING, pct)
 
-        ctx = JobContext(job_id, params, cancel_event, self._item_repo, report_progress)
+        had_prior_failures = await self._item_repo.has_failed_item(job_id)
+        ctx = JobContext(
+            job_id,
+            params,
+            cancel_event,
+            self._item_repo,
+            report_progress,
+            had_prior_failures=had_prior_failures,
+        )
         try:
             await handler(ctx)
         except Exception:
@@ -176,5 +249,9 @@ class InProcessTaskScheduler:
 
         if cancel_event.is_set():
             await self._set_status(job_id, JobStatus.CANCELLED, 0.0)
+        elif ctx.has_failures():
+            # SDD §16.3: a partially-failed job must complete as
+            # PARTIALLY_COMPLETED, never silently as COMPLETED.
+            await self._set_status(job_id, JobStatus.PARTIALLY_COMPLETED, 100.0)
         else:
             await self._set_status(job_id, JobStatus.COMPLETED, 100.0)

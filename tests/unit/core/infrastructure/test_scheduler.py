@@ -7,10 +7,11 @@ import pytest
 from core.domain.scheduler import JobSpec, JobStatus
 from core.infrastructure.db.base import Base
 from core.infrastructure.db.engine import create_engine, create_session_factory
-from core.infrastructure.db.job_models import Job
+from core.infrastructure.db.job_models import Job, JobItem
 from core.infrastructure.db.write_connection import WriteConnection
 from core.infrastructure.scheduler import (
     InProcessTaskScheduler,
+    JobContext,
     JobItemRepository,
     JobRepository,
 )
@@ -107,6 +108,53 @@ async def test_resume_incomplete_jobs_reruns_a_job_left_running_by_a_crash(
     events = await _collect_until_terminal(scheduler, stale_job.id)
 
     assert events[-1].status == JobStatus.COMPLETED
+
+
+async def test_a_job_with_a_failed_item_completes_as_partially_completed(
+    scheduler: InProcessTaskScheduler,
+) -> None:
+    async def handler(ctx: JobContext) -> None:
+        await ctx.complete_item(0, 2)
+        await ctx.fail_item(1, 2, "some_error", "it broke")
+
+    scheduler.register_handler("partial", handler)
+    job_id = await scheduler.enqueue(JobSpec(job_type="partial"))
+
+    events = await _collect_until_terminal(scheduler, job_id)
+
+    assert events[-1].status == JobStatus.PARTIALLY_COMPLETED
+    job = await scheduler._job_repo.get(job_id)
+    assert job is not None
+    assert job.status == JobStatus.PARTIALLY_COMPLETED.value
+
+    items = await scheduler._item_repo.list_by_job(job_id, limit=10, offset=0)
+    failed = [item for item in items if item.status == "failed"]
+    assert len(failed) == 1
+    assert failed[0].error_code == "some_error"
+    assert failed[0].error_message == "it broke"
+
+
+async def test_resuming_a_job_that_already_recorded_a_failure_stays_partially_completed(
+    scheduler: InProcessTaskScheduler,
+) -> None:
+    stale_job = await scheduler._job_repo.create(
+        Job(
+            job_type="noop",
+            status=JobStatus.RUNNING.value,
+            progress_pct=50.0,
+            params={"item_count": 1},
+        )
+    )
+    await scheduler._item_repo.create(
+        JobItem(
+            job_id=stale_job.id, file_id=None, status="failed", error_code="x", error_message="y"
+        )
+    )
+
+    await scheduler.resume_incomplete_jobs()
+    events = await _collect_until_terminal(scheduler, stale_job.id)
+
+    assert events[-1].status == JobStatus.PARTIALLY_COMPLETED
 
 
 async def test_resume_incomplete_jobs_is_a_noop_when_nothing_is_running(

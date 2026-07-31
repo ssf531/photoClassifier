@@ -12,6 +12,7 @@ from core.infrastructure.collection_repository import (
 from core.infrastructure.db.collection_models import Collection, SmartCollectionRule
 
 _SMART_COUNT_LIMIT = 1000
+_LIST_ALL_MEMBERS_PAGE_SIZE = 500
 
 
 class UnknownCollectionError(Exception):
@@ -87,6 +88,23 @@ class CollectionManager:
             return await self.evaluate_smart(collection_id, limit=limit, offset=offset)
         items = await self._items.list_by_collection(collection_id, limit=limit, offset=offset)
         return [item.photo_id for item in items]
+
+    async def list_all_members(self, collection_id: uuid.UUID) -> list[uuid.UUID]:
+        """Pages through `list_members()` internally so callers that need
+        every member (e.g. batch-exporting a whole collection) don't have
+        to reimplement pagination -- matching RecommendationEngine's
+        internally-paginating precedent.
+        """
+        all_ids: list[uuid.UUID] = []
+        offset = 0
+        while True:
+            page = await self.list_members(
+                collection_id, limit=_LIST_ALL_MEMBERS_PAGE_SIZE, offset=offset
+            )
+            all_ids.extend(page)
+            if len(page) < _LIST_ALL_MEMBERS_PAGE_SIZE:
+                return all_ids
+            offset += _LIST_ALL_MEMBERS_PAGE_SIZE
 
     async def evaluate_smart(
         self, collection_id: uuid.UUID, *, limit: int, offset: int

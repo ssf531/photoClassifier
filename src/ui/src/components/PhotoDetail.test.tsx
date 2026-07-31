@@ -169,7 +169,29 @@ describe("PhotoDetail", () => {
 
     await waitFor(() => screen.getByText("Exported."));
     expect(apiClient.POST).toHaveBeenCalledWith("/api/v1/export/xmp", {
-      body: { photo_ids: ["photo-1"] },
+      body: { photo_ids: ["photo-1"], preset: "default" },
+    });
+  });
+
+  it("exports using the selected preset", async () => {
+    mockGetResponse(DETAIL_RESPONSE);
+    vi.mocked(apiClient.POST).mockResolvedValue({
+      data: { items: [{ photo_id: "photo-1", success: true, error: null }] },
+      error: undefined,
+      response: new Response(),
+    });
+
+    renderWithClient(<PhotoDetail photoId="photo-1" />);
+
+    await waitFor(() => screen.getByLabelText("Export preset"));
+    fireEvent.change(screen.getByLabelText("Export preset"), {
+      target: { value: "lightroom" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Export to XMP" }));
+
+    await waitFor(() => screen.getByText("Exported."));
+    expect(apiClient.POST).toHaveBeenCalledWith("/api/v1/export/xmp", {
+      body: { photo_ids: ["photo-1"], preset: "lightroom" },
     });
   });
 

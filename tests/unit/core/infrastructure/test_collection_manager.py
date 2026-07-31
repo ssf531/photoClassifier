@@ -223,6 +223,26 @@ async def test_adding_10000_photos_performs_zero_filesystem_writes(
     )
 
 
+async def test_list_all_members_pages_through_every_member(env: _Env) -> None:
+    """`list_all_members()` (TASK-084) internally pages past a single
+    `list_members()` call's page size so a caller (e.g. batch-exporting an
+    entire collection) gets every member back in one call.
+    """
+    collection = await env.manager.create("Big trip")
+    target = env.photo_ids[:1200]
+    await env.manager.add_members(collection.id, target)
+
+    members = await env.manager.list_all_members(collection.id)
+
+    assert set(members) == set(target)
+    assert len(members) == len(target)
+
+
+async def test_list_all_members_of_unknown_collection_raises(env: _Env) -> None:
+    with pytest.raises(UnknownCollectionError):
+        await env.manager.list_all_members(uuid.uuid4())
+
+
 async def test_create_smart_returns_a_smart_collection(env: _Env) -> None:
     collection = await env.manager.create_smart(
         "Sunsets", SearchQueryRequest(text="sunset", mode="text")

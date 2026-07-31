@@ -287,10 +287,38 @@ export function useBuiltinFilters() {
 
 export function useExportXmp() {
   return useMutation({
-    mutationFn: async (photoIds: string[]) => {
+    mutationFn: async ({
+      photoIds,
+      preset = "default",
+    }: {
+      photoIds: string[];
+      preset?: string;
+    }) => {
       const { data, error } = await apiClient.POST("/api/v1/export/xmp", {
-        body: { photo_ids: photoIds },
+        body: { photo_ids: photoIds, preset },
       });
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
+export function useExportCollectionXmp() {
+  return useMutation({
+    mutationFn: async ({
+      collectionId,
+      preset = "default",
+    }: {
+      collectionId: string;
+      preset?: string;
+    }) => {
+      const { data, error } = await apiClient.POST(
+        "/api/v1/collections/{collection_id}/export/xmp",
+        {
+          params: { path: { collection_id: collectionId } },
+          body: { preset },
+        },
+      );
       if (error) throw error;
       return data;
     },

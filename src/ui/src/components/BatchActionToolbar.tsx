@@ -39,6 +39,7 @@ export function BatchActionToolbar({
   const copyToFolder = useCopyToFolder();
 
   const [collectionId, setCollectionId] = useState("");
+  const [exportPreset, setExportPreset] = useState("default");
   const [destination, setDestination] = useState("");
   const [message, setMessage] = useState<string | null>(null);
 
@@ -57,12 +58,15 @@ export function BatchActionToolbar({
 
   const handleExport = (): void => {
     setMessage(null);
-    exportXmp.mutate(photoIds, {
-      onSuccess: (report) =>
-        setMessage(
-          `Exported ${summarizeReport(report?.items, photoIds.length)}`,
-        ),
-    });
+    exportXmp.mutate(
+      { photoIds, preset: exportPreset },
+      {
+        onSuccess: (report) =>
+          setMessage(
+            `Exported ${summarizeReport(report?.items, photoIds.length)}`,
+          ),
+      },
+    );
   };
 
   const handleCopy = (): void => {
@@ -120,6 +124,17 @@ export function BatchActionToolbar({
         Add
       </button>
 
+      <label>
+        Export preset
+        <select
+          aria-label="Batch export preset"
+          value={exportPreset}
+          onChange={(event) => setExportPreset(event.target.value)}
+        >
+          <option value="default">Default</option>
+          <option value="lightroom">Lightroom keyword hierarchy</option>
+        </select>
+      </label>
       <button
         type="button"
         onClick={handleExport}

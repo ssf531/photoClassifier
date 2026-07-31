@@ -1050,6 +1050,72 @@
         }
       }
     },
+    "/api/v1/collections/{collection_id}/export/xmp": {
+      "post": {
+        "summary": "Export Collection Xmp",
+        "operationId": "export_collection_xmp_api_v1_collections__collection_id__export_xmp_post",
+        "parameters": [
+          {
+            "name": "collection_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Collection Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExportCollectionXmpRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportReport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/export/copy": {
       "post": {
         "summary": "Copy To Folder",
@@ -1572,6 +1638,17 @@
         "required": ["id", "detection_method", "created_at", "members"],
         "title": "DuplicateGroupSummary"
       },
+      "ExportCollectionXmpRequest": {
+        "properties": {
+          "preset": {
+            "type": "string",
+            "title": "Preset",
+            "default": "default"
+          }
+        },
+        "type": "object",
+        "title": "ExportCollectionXmpRequest"
+      },
       "ExportReport": {
         "properties": {
           "items": {
@@ -1622,6 +1699,11 @@
             },
             "type": "array",
             "title": "Photo Ids"
+          },
+          "preset": {
+            "type": "string",
+            "title": "Preset",
+            "default": "default"
           }
         },
         "type": "object",

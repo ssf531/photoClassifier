@@ -22,7 +22,7 @@ from core.domain.collections import (
 )
 from core.domain.copy_export import CopyReport, CopyToFolderRequest
 from core.domain.duplicates import DuplicateGroupListResponse
-from core.domain.export import ExportReport, ExportXmpRequest
+from core.domain.export import ExportCollectionXmpRequest, ExportReport, ExportXmpRequest
 from core.domain.library import (
     AiResultSummary,
     LibraryRootCreateRequest,
@@ -52,6 +52,7 @@ from core.infrastructure.collection_manager import CollectionManager, UnknownCol
 from core.infrastructure.copy_export_manager import CopyExportManager
 from core.infrastructure.db.library_models import LibraryRoot
 from core.infrastructure.duplicate_review_service import DuplicateReviewService
+from core.infrastructure.export_presets import UnknownPresetError, get_preset
 from core.infrastructure.library_repository import LibraryRootRepository, PhotoRepository
 from core.infrastructure.metadata_repository import MetadataRepository
 from core.infrastructure.plugin_repository import PluginRepository
@@ -411,7 +412,32 @@ def create_app(
         manager = request.app.state.xmp_export_manager
         if manager is None:
             raise HTTPException(status_code=503, detail="XMP export manager not configured")
-        return ExportReport(items=await manager.export_xmp(body.photo_ids))
+        try:
+            preset = get_preset(body.preset)
+        except UnknownPresetError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return ExportReport(items=await manager.export_xmp(body.photo_ids, preset))
+
+    @app.post(
+        "/api/v1/collections/{collection_id}/export/xmp",
+        dependencies=[Depends(require_bearer_token)],
+    )
+    async def export_collection_xmp(
+        collection_id: uuid.UUID, body: ExportCollectionXmpRequest, request: Request
+    ) -> ExportReport:
+        collection_manager_ = request.app.state.collection_manager
+        xmp_export_manager_ = request.app.state.xmp_export_manager
+        if collection_manager_ is None or xmp_export_manager_ is None:
+            raise HTTPException(status_code=503, detail="export not configured")
+        try:
+            preset = get_preset(body.preset)
+        except UnknownPresetError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        try:
+            photo_ids = await collection_manager_.list_all_members(collection_id)
+        except UnknownCollectionError as exc:
+            raise HTTPException(status_code=404, detail="collection not found") from exc
+        return ExportReport(items=await xmp_export_manager_.export_xmp(photo_ids, preset))
 
     @app.post("/api/v1/export/copy", dependencies=[Depends(require_bearer_token)])
     async def copy_to_folder(body: CopyToFolderRequest, request: Request) -> CopyReport:

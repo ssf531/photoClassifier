@@ -21,6 +21,7 @@ from core.infrastructure.db.library_models import LibraryRoot, Photo
 from core.infrastructure.db.plugin_models import Plugin
 from core.infrastructure.db.write_connection import WriteConnection
 from core.infrastructure.exiftool_process import ExifToolProcess, find_exiftool
+from core.infrastructure.export_presets import DEFAULT_PRESET, LIGHTROOM_PRESET
 from core.infrastructure.export_repository import XmpExportRecordRepository
 from core.infrastructure.library_repository import LibraryRootRepository, PhotoRepository
 from core.infrastructure.plugin_repository import PluginRepository
@@ -238,3 +239,123 @@ async def test_export_reports_failure_for_an_unknown_photo(env: _Env) -> None:
 
     assert len(results) == 1
     assert results[0].success is False
+
+
+async def test_export_default_preset_writes_a_flat_subject_list(env: _Env) -> None:
+    photo_id = await env.make_photo("a.jpg")
+    await env.ai_results.record_result(
+        photo_id=photo_id,
+        plugin_id="clip-zero-shot-tagging",
+        capability=Capability.TAG.value,
+        model_version="v1",
+        payload={
+            "tags": [{"label": "dog", "confidence": 0.8}, {"label": "beach", "confidence": 0.7}]
+        },
+        confidence=0.8,
+    )
+
+    results = await env.manager.export_xmp([photo_id], DEFAULT_PRESET)
+
+    assert results == [ExportResultItem(photo_id=photo_id, success=True, error=None)]
+    written = await env.exiftool.read_metadata(env.sidecar_path("a.jpg"))
+    assert set(written["Subject"]) == {"dog", "beach"}
+    assert "HierarchicalSubject" not in written
+
+
+async def test_switching_from_lightroom_to_default_preset_still_writes_subject(
+    env: _Env,
+) -> None:
+    """Regression test for a real bug found via live testing: exporting
+    with the Lightroom preset first (writing only `HierarchicalSubject`)
+    and then the default preset on the same already-existing sidecar (which
+    has never had `Subject` set) must still succeed. The bug: `write_tags`'s
+    clear round for a list tag with no existing value reports "unchanged",
+    and that was being validated by the same strict created/updated check
+    as the real set round, aborting the export before `Subject` was ever
+    written.
+    """
+    photo_id = await env.make_photo("a.jpg")
+    await env.ai_results.record_result(
+        photo_id=photo_id,
+        plugin_id="clip-zero-shot-tagging",
+        capability=Capability.TAG.value,
+        model_version="v1",
+        payload={
+            "tags": [{"label": "dog", "confidence": 0.8}, {"label": "beach", "confidence": 0.7}]
+        },
+        confidence=0.8,
+    )
+
+    first = await env.manager.export_xmp([photo_id], LIGHTROOM_PRESET)
+    second = await env.manager.export_xmp([photo_id], DEFAULT_PRESET)
+
+    assert first == [ExportResultItem(photo_id=photo_id, success=True, error=None)]
+    assert second == [ExportResultItem(photo_id=photo_id, success=True, error=None)]
+    written = await env.exiftool.read_metadata(env.sidecar_path("a.jpg"))
+    assert set(written["Subject"]) == {"dog", "beach"}
+    assert set(written["HierarchicalSubject"]) == {"AI Tags|dog", "AI Tags|beach"}
+
+
+async def test_export_lightroom_preset_writes_a_hierarchical_subject(env: _Env) -> None:
+    """FEAT-082's acceptance criterion: the Lightroom preset must produce a
+    keyword hierarchy Lightroom imports without manual reformatting, i.e.
+    `lr:hierarchicalSubject` (ExifTool tag `HierarchicalSubject`), not the
+    flat `dc:subject` list the default preset writes.
+    """
+    photo_id = await env.make_photo("a.jpg")
+    await env.ai_results.record_result(
+        photo_id=photo_id,
+        plugin_id="clip-zero-shot-tagging",
+        capability=Capability.TAG.value,
+        model_version="v1",
+        payload={
+            "tags": [{"label": "dog", "confidence": 0.8}, {"label": "beach", "confidence": 0.7}]
+        },
+        confidence=0.8,
+    )
+
+    results = await env.manager.export_xmp([photo_id], LIGHTROOM_PRESET)
+
+    assert results == [ExportResultItem(photo_id=photo_id, success=True, error=None)]
+    written = await env.exiftool.read_metadata(env.sidecar_path("a.jpg"))
+    assert set(written["HierarchicalSubject"]) == {"AI Tags|dog", "AI Tags|beach"}
+    assert "Subject" not in written
+
+
+async def test_re_exporting_with_the_lightroom_preset_replaces_rather_than_accumulates(
+    env: _Env,
+) -> None:
+    """Regression guard for the clear+append merge bug discovered in
+    TASK-083 (`write_tags()`'s two-round-trip fix): re-exporting with a
+    different tag set must replace `HierarchicalSubject`, not merge old and
+    new values together -- verified here for the Lightroom preset
+    specifically, since it is a different tag name than the default
+    preset's `Subject`.
+    """
+    photo_id = await env.make_photo("a.jpg")
+    await env.ai_results.record_result(
+        photo_id=photo_id,
+        plugin_id="clip-zero-shot-tagging",
+        capability=Capability.TAG.value,
+        model_version="v1",
+        payload={
+            "tags": [{"label": "dog", "confidence": 0.8}, {"label": "beach", "confidence": 0.7}]
+        },
+        confidence=0.8,
+    )
+    await env.manager.export_xmp([photo_id], LIGHTROOM_PRESET)
+
+    await env.ai_results.record_result(
+        photo_id=photo_id,
+        plugin_id="clip-zero-shot-tagging",
+        capability=Capability.TAG.value,
+        model_version="v2",
+        payload={
+            "tags": [{"label": "cat", "confidence": 0.9}, {"label": "fish", "confidence": 0.6}]
+        },
+        confidence=0.9,
+    )
+    await env.manager.export_xmp([photo_id], LIGHTROOM_PRESET)
+
+    written = await env.exiftool.read_metadata(env.sidecar_path("a.jpg"))
+    assert set(written["HierarchicalSubject"]) == {"AI Tags|cat", "AI Tags|fish"}

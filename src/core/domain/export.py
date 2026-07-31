@@ -5,6 +5,11 @@ from core.domain.library import PhotoId
 
 class ExportXmpRequest(BaseModel):
     photo_ids: list[PhotoId]
+    preset: str = "default"
+
+
+class ExportCollectionXmpRequest(BaseModel):
+    preset: str = "default"
 
 
 class ExportResultItem(BaseModel):

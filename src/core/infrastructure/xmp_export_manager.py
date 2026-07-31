@@ -3,11 +3,11 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from core.domain.export import ExportResultItem
-from core.domain.plugins import Capability
 from core.infrastructure.ai_result_repository import AiResultRepository
 from core.infrastructure.collection_repository import UserDataRepository
 from core.infrastructure.db.export_models import XmpExportRecord
 from core.infrastructure.exiftool_process import ExifToolProcess, ExifToolWriteError
+from core.infrastructure.export_presets import DEFAULT_PRESET, ExportPreset
 from core.infrastructure.export_repository import XmpExportRecordRepository
 from core.infrastructure.library_repository import LibraryRootRepository, PhotoRepository
 from core.infrastructure.xmp_reader import sidecar_path_for
@@ -47,11 +47,13 @@ class XmpExportManager:
         self._user_data = user_data_repo
         self._export_records = export_record_repo
 
-    async def export_xmp(self, photo_ids: Sequence[uuid.UUID]) -> list[ExportResultItem]:
+    async def export_xmp(
+        self, photo_ids: Sequence[uuid.UUID], preset: ExportPreset = DEFAULT_PRESET
+    ) -> list[ExportResultItem]:
         items = []
         for photo_id in photo_ids:
             try:
-                sidecar_path = await self._export_one(photo_id)
+                sidecar_path = await self._export_one(photo_id, preset)
                 items.append(ExportResultItem(photo_id=photo_id, success=True))
                 await self._export_records.create(
                     XmpExportRecord(photo_id=photo_id, sidecar_path=str(sidecar_path))
@@ -60,7 +62,7 @@ class XmpExportManager:
                 items.append(ExportResultItem(photo_id=photo_id, success=False, error=str(exc)))
         return items
 
-    async def _export_one(self, photo_id: uuid.UUID) -> Path:
+    async def _export_one(self, photo_id: uuid.UUID, preset: ExportPreset) -> Path:
         photo = await self._photos.get(photo_id)
         if photo is None:
             raise PhotoNotFoundError(f"photo {photo_id} not found")
@@ -70,20 +72,10 @@ class XmpExportManager:
         photo_path = Path(root.path) / photo.relative_path
         sidecar_path = sidecar_path_for(photo_path)
 
-        tags: dict[str, str | int | list[str]] = {}
-        for result in await self._ai_results.list_current_by_photo(photo_id):
-            if result.capability == Capability.CAPTION.value:
-                caption = result.payload.get("caption")
-                if caption:
-                    tags["Description"] = caption
-            elif result.capability == Capability.TAG.value:
-                labels = [tag["label"] for tag in result.payload.get("tags", [])]
-                if labels:
-                    tags["Subject"] = labels
-
+        ai_results = await self._ai_results.list_current_by_photo(photo_id)
         user_data = await self._user_data.get_by_photo_id(photo_id)
-        if user_data is not None and user_data.rating is not None:
-            tags["Rating"] = user_data.rating
+        rating = user_data.rating if user_data is not None else None
+        tags = preset.build_tags(ai_results, rating)
 
         if not tags:
             raise NothingToExportError(f"photo {photo_id} has no AI result or rating to export")

@@ -80,7 +80,7 @@ class ExifToolProcess:
         """
         list_tag_names = [key for key, value in tags.items() if isinstance(value, list)]
         if list_tag_names and path.is_file():
-            await self._write_command(path, [f"-{name}=" for name in list_tag_names])
+            await self._clear_command(path, [f"-{name}=" for name in list_tag_names])
 
         args: list[str] = []
         for key, value in tags.items():
@@ -96,6 +96,24 @@ class ExifToolProcess:
         if "1 image files created" not in summary and "1 image files updated" not in summary:
             raise ExifToolWriteError(
                 f"exiftool did not report success writing {path}: {summary.strip()!r}"
+            )
+
+    async def _clear_command(self, path: Path, args: list[str]) -> None:
+        """Clearing a list tag that doesn't currently hold a value is a
+        legitimate no-op -- e.g. exporting a tag for the first time on a
+        sidecar an earlier export (with a different tag, such as a
+        different preset's tag name) already created. ExifTool reports
+        this as "unchanged", which must not be treated as a failure the
+        way `_write_command`'s stricter check treats it -- doing so would
+        abort `write_tags()` before its real set round ever runs (a real
+        bug found via live testing: TASK-084's Lightroom-then-default
+        re-export sequence hit exactly this case).
+        """
+        output = await self._execute(["-overwrite_original", *args, str(path)])
+        summary = output.decode(errors="replace")
+        if "1 image files updated" not in summary and "image files unchanged" not in summary:
+            raise ExifToolWriteError(
+                f"exiftool failed to clear tags on {path}: {summary.strip()!r}"
             )
 
     async def _execute(self, command_lines: list[str]) -> bytes:

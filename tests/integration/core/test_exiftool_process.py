@@ -103,6 +103,26 @@ async def test_write_tags_replaces_list_values_on_re_export_instead_of_accumulat
     assert set(result["Subject"]) == {"cat", "mountain"}
 
 
+async def test_write_tags_sets_a_new_list_tag_on_a_sidecar_that_already_has_a_different_one(
+    tmp_path: Path, exiftool: ExifToolProcess
+) -> None:
+    """Regression test (found via TASK-084 live testing): the sidecar
+    already exists (created by an earlier `write_tags()` call for a
+    different list tag), but this is the FIRST time `Subject` specifically
+    is being set on it. `write_tags()`'s clear round for `Subject` then has
+    nothing to clear -- ExifTool reports that round "unchanged", which must
+    not abort the export before the real set round runs.
+    """
+    sidecar = tmp_path / "photo.xmp"
+    await exiftool.write_tags(sidecar, {"HierarchicalSubject": ["AI Tags|dog"]})
+
+    await exiftool.write_tags(sidecar, {"Subject": ["dog", "beach"]})
+
+    result = await exiftool.read_metadata(sidecar)
+    assert set(result["Subject"]) == {"dog", "beach"}
+    assert result["HierarchicalSubject"] == "AI Tags|dog"
+
+
 async def test_write_tags_never_touches_a_different_path(
     tmp_path: Path, exiftool: ExifToolProcess
 ) -> None:

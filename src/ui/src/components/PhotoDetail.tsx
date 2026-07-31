@@ -66,22 +66,37 @@ function AddToCollection({ photoId }: { photoId: string }): React.JSX.Element {
 
 function ExportXmpButton({ photoId }: { photoId: string }): React.JSX.Element {
   const exportXmp = useExportXmp();
+  const [preset, setPreset] = useState("default");
   const [message, setMessage] = useState<string | null>(null);
 
   const handleExport = (): void => {
     setMessage(null);
-    exportXmp.mutate([photoId], {
-      onSuccess: (report) => {
-        const item = report?.items[0];
-        setMessage(
-          item?.success ? "Exported." : (item?.error ?? "Export failed."),
-        );
+    exportXmp.mutate(
+      { photoIds: [photoId], preset },
+      {
+        onSuccess: (report) => {
+          const item = report?.items[0];
+          setMessage(
+            item?.success ? "Exported." : (item?.error ?? "Export failed."),
+          );
+        },
       },
-    });
+    );
   };
 
   return (
     <div>
+      <label>
+        Export preset
+        <select
+          aria-label="Export preset"
+          value={preset}
+          onChange={(event) => setPreset(event.target.value)}
+        >
+          <option value="default">Default</option>
+          <option value="lightroom">Lightroom keyword hierarchy</option>
+        </select>
+      </label>
       <button
         type="button"
         onClick={handleExport}

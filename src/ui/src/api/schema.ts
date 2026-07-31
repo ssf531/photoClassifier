@@ -279,6 +279,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/collections/{collection_id}/export/xmp": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Export Collection Xmp */
+    post: operations["export_collection_xmp_api_v1_collections__collection_id__export_xmp_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/export/copy": {
     parameters: {
       query?: never;
@@ -486,6 +503,14 @@ export interface components {
       /** Members */
       members: components["schemas"]["DuplicateGroupMemberSummary"][];
     };
+    /** ExportCollectionXmpRequest */
+    ExportCollectionXmpRequest: {
+      /**
+       * Preset
+       * @default default
+       */
+      preset: string;
+    };
     /** ExportReport */
     ExportReport: {
       /** Items */
@@ -507,6 +532,11 @@ export interface components {
     ExportXmpRequest: {
       /** Photo Ids */
       photo_ids: string[];
+      /**
+       * Preset
+       * @default default
+       */
+      preset: string;
     };
     /** GpsBoundingBoxRequest */
     GpsBoundingBoxRequest: {
@@ -1394,6 +1424,43 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": components["schemas"]["ExportXmpRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ExportReport"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  export_collection_xmp_api_v1_collections__collection_id__export_xmp_post: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        collection_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ExportCollectionXmpRequest"];
       };
     };
     responses: {

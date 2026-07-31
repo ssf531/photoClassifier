@@ -122,6 +122,42 @@ describe("CollectionsPage", () => {
     expect(screen.getAllByRole("img")).toHaveLength(2);
   });
 
+  it("exports a selected collection to XMP using the chosen preset", async () => {
+    mockGet();
+    vi.mocked(apiClient.POST).mockResolvedValue({
+      data: {
+        items: [
+          { photo_id: "photo-1", success: true, error: null },
+          { photo_id: "photo-2", success: true, error: null },
+        ],
+      },
+      error: undefined,
+      response: new Response(),
+    });
+
+    renderPage();
+
+    await waitFor(() => screen.getByText("Trip"));
+    fireEvent.click(screen.getByRole("button", { name: "Trip" }));
+
+    await waitFor(() => screen.getByLabelText("Collection export preset"));
+    fireEvent.change(screen.getByLabelText("Collection export preset"), {
+      target: { value: "lightroom" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Export collection to XMP" }),
+    );
+
+    await waitFor(() => screen.getByText("Exported 2/2 succeeded."));
+    expect(apiClient.POST).toHaveBeenCalledWith(
+      "/api/v1/collections/{collection_id}/export/xmp",
+      {
+        params: { path: { collection_id: "coll-1" } },
+        body: { preset: "lightroom" },
+      },
+    );
+  });
+
   it("creates a smart collection from a quick filter preset with one click", async () => {
     mockGet();
     vi.mocked(apiClient.POST).mockResolvedValue({

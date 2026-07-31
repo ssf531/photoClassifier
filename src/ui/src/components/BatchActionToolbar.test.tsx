@@ -99,7 +99,27 @@ describe("BatchActionToolbar", () => {
 
     await waitFor(() => screen.getByText("Exported 1/2 succeeded."));
     expect(apiClient.POST).toHaveBeenCalledWith("/api/v1/export/xmp", {
-      body: { photo_ids: ["a", "b"] },
+      body: { photo_ids: ["a", "b"], preset: "default" },
+    });
+  });
+
+  it("exports all selected photos using the selected preset", async () => {
+    vi.mocked(apiClient.POST).mockResolvedValue({
+      data: { items: [{ photo_id: "a", success: true, error: null }] },
+      error: undefined,
+      response: new Response(),
+    });
+
+    renderWithClient(<BatchActionToolbar photoIds={["a"]} onClear={vi.fn()} />);
+
+    fireEvent.change(await screen.findByLabelText("Batch export preset"), {
+      target: { value: "lightroom" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Export to XMP" }));
+
+    await waitFor(() => screen.getByText("Exported 1/1 succeeded."));
+    expect(apiClient.POST).toHaveBeenCalledWith("/api/v1/export/xmp", {
+      body: { photo_ids: ["a"], preset: "lightroom" },
     });
   });
 

@@ -7,6 +7,7 @@ import {
   useCollectionMembers,
   useCollections,
   useCreateCollection,
+  useExportCollectionXmp,
 } from "../api/hooks";
 import { thumbnailUrl } from "../api/thumbnailUrl";
 
@@ -41,6 +42,55 @@ function QuickFilters(): React.JSX.Element | null {
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+function ExportCollectionXmpButton({
+  collectionId,
+}: {
+  collectionId: string;
+}): React.JSX.Element {
+  const exportCollectionXmp = useExportCollectionXmp();
+  const [preset, setPreset] = useState("default");
+  const [message, setMessage] = useState<string | null>(null);
+
+  const handleExport = (): void => {
+    setMessage(null);
+    exportCollectionXmp.mutate(
+      { collectionId, preset },
+      {
+        onSuccess: (report) => {
+          const total = report?.items.length ?? 0;
+          const succeeded =
+            report?.items.filter((item) => item.success).length ?? 0;
+          setMessage(`Exported ${succeeded}/${total} succeeded.`);
+        },
+      },
+    );
+  };
+
+  return (
+    <div>
+      <label>
+        Export preset
+        <select
+          aria-label="Collection export preset"
+          value={preset}
+          onChange={(event) => setPreset(event.target.value)}
+        >
+          <option value="default">Default</option>
+          <option value="lightroom">Lightroom keyword hierarchy</option>
+        </select>
+      </label>
+      <button
+        type="button"
+        onClick={handleExport}
+        disabled={exportCollectionXmp.isPending}
+      >
+        Export collection to XMP
+      </button>
+      {message && <span> {message}</span>}
     </div>
   );
 }
@@ -138,7 +188,12 @@ export function CollectionsPage(): React.JSX.Element {
           </li>
         ))}
       </ul>
-      {selectedId && <CollectionMembers collectionId={selectedId} />}
+      {selectedId && (
+        <>
+          <ExportCollectionXmpButton collectionId={selectedId} />
+          <CollectionMembers collectionId={selectedId} />
+        </>
+      )}
     </div>
   );
 }

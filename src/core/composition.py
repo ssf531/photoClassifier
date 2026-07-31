@@ -18,6 +18,7 @@ from core.infrastructure.collection_repository import (
     CollectionItemRepository,
     CollectionRepository,
     SmartCollectionRuleRepository,
+    UserDataRepository,
 )
 from core.infrastructure.db.engine import create_engine, create_session_factory
 from core.infrastructure.db.write_connection import WriteConnection
@@ -27,6 +28,8 @@ from core.infrastructure.duplicate_repository import (
 )
 from core.infrastructure.duplicate_review_service import DuplicateReviewService
 from core.infrastructure.embedding_service import DefaultEmbeddingService
+from core.infrastructure.exiftool_process import ExifToolProcess, find_exiftool
+from core.infrastructure.export_repository import XmpExportRecordRepository
 from core.infrastructure.fts_search_index import FtsTextSearchIndex
 from core.infrastructure.gpu_resource_manager import (
     create_inference_semaphore,
@@ -45,6 +48,7 @@ from core.infrastructure.settings_toml import TomlSettingsService
 from core.infrastructure.thumbnail_cache import ThumbnailCacheManager
 from core.infrastructure.thumbnail_service import ThumbnailService
 from core.infrastructure.vec_embedding_index import SqliteVecEmbeddingIndex
+from core.infrastructure.xmp_export_manager import XmpExportManager
 from core.logging_setup import configure_logging
 
 _CLIP_PROVIDER_ID = "clip"
@@ -152,6 +156,22 @@ async def compose(**settings_overrides: Any) -> Composition:
         DuplicateGroupRepository(sessions, writer), duplicate_group_member_repo
     )
 
+    # ExifTool is an optional system dependency (SDD §16.4 degraded mode):
+    # XMP export simply isn't offered when it's absent, same as HEIC/GPU.
+    exiftool_path = find_exiftool()
+    xmp_export_manager = (
+        XmpExportManager(
+            ExifToolProcess(exiftool_path),
+            photo_repo,
+            library_root_repo,
+            ai_result_repo,
+            UserDataRepository(sessions, writer),
+            XmpExportRecordRepository(sessions, writer),
+        )
+        if exiftool_path is not None
+        else None
+    )
+
     app = create_app(
         scheduler=scheduler,
         settings=settings,
@@ -166,6 +186,7 @@ async def compose(**settings_overrides: Any) -> Composition:
         collection_manager=collection_manager,
         recommendation_engine=recommendation_engine,
         duplicate_review_service=duplicate_review_service,
+        xmp_export_manager=xmp_export_manager,
     )
 
     return Composition(settings=settings, scheduler=scheduler, app=app)

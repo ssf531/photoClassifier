@@ -262,6 +262,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/export/xmp": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Export Xmp */
+    post: operations["export_xmp_api_v1_export_xmp_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/thumbnails/{photo_id}": {
     parameters: {
       query?: never;
@@ -425,6 +442,28 @@ export interface components {
       created_at: string;
       /** Members */
       members: components["schemas"]["DuplicateGroupMemberSummary"][];
+    };
+    /** ExportReport */
+    ExportReport: {
+      /** Items */
+      items: components["schemas"]["ExportResultItem"][];
+    };
+    /** ExportResultItem */
+    ExportResultItem: {
+      /**
+       * Photo Id
+       * Format: uuid
+       */
+      photo_id: string;
+      /** Success */
+      success: boolean;
+      /** Error */
+      error?: string | null;
+    };
+    /** ExportXmpRequest */
+    ExportXmpRequest: {
+      /** Photo Ids */
+      photo_ids: string[];
     };
     /** GpsBoundingBoxRequest */
     GpsBoundingBoxRequest: {
@@ -1287,6 +1326,41 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["BuiltinFilterListResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  export_xmp_api_v1_export_xmp_post: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ExportXmpRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ExportReport"];
         };
       };
       /** @description Validation Error */

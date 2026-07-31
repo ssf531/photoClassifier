@@ -21,6 +21,7 @@ from core.domain.collections import (
     CollectionSummary,
 )
 from core.domain.duplicates import DuplicateGroupListResponse
+from core.domain.export import ExportReport, ExportXmpRequest
 from core.domain.library import (
     AiResultSummary,
     LibraryRootCreateRequest,
@@ -59,6 +60,7 @@ from core.infrastructure.thumbnail_service import (
     PhotoNotHashedError,
     ThumbnailService,
 )
+from core.infrastructure.xmp_export_manager import XmpExportManager
 
 _MAX_PLUGIN_LIST_LIMIT = 500
 
@@ -117,6 +119,7 @@ def create_app(
     collection_manager: CollectionManager | None = None,
     recommendation_engine: RecommendationEngine | None = None,
     duplicate_review_service: DuplicateReviewService | None = None,
+    xmp_export_manager: XmpExportManager | None = None,
     ui_dist_dir: Path = UI_DIST_DIR,
 ) -> FastAPI:
     launch_token = token or generate_launch_token()
@@ -138,6 +141,7 @@ def create_app(
     app.state.collection_manager = collection_manager
     app.state.recommendation_engine = recommendation_engine
     app.state.duplicate_review_service = duplicate_review_service
+    app.state.xmp_export_manager = xmp_export_manager
 
     @app.get("/health", dependencies=[Depends(require_bearer_token)])
     def health() -> HealthResponse:
@@ -397,6 +401,13 @@ def create_app(
     @app.get("/api/v1/builtin-filters", dependencies=[Depends(require_bearer_token)])
     async def list_builtin_filters() -> BuiltinFilterListResponse:
         return BuiltinFilterListResponse(items=BUILTIN_FILTER_PRESETS)
+
+    @app.post("/api/v1/export/xmp", dependencies=[Depends(require_bearer_token)])
+    async def export_xmp(body: ExportXmpRequest, request: Request) -> ExportReport:
+        manager = request.app.state.xmp_export_manager
+        if manager is None:
+            raise HTTPException(status_code=503, detail="XMP export manager not configured")
+        return ExportReport(items=await manager.export_xmp(body.photo_ids))
 
     @app.get("/api/v1/thumbnails/{photo_id}", dependencies=[Depends(require_bearer_or_query_token)])
     async def get_thumbnail(photo_id: uuid.UUID, size: ThumbSize, request: Request) -> Response:

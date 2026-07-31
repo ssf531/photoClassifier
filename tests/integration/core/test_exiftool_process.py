@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from core.infrastructure.exiftool_process import ExifToolProcess, find_exiftool
+from core.infrastructure.exiftool_process import ExifToolProcess, ExifToolWriteError, find_exiftool
 
 pytestmark = pytest.mark.skipif(find_exiftool() is None, reason="exiftool not installed")
 
@@ -72,3 +72,51 @@ async def test_stop_terminates_the_process(tmp_path: Path, exiftool: ExifToolPro
 
     assert process.returncode is not None
     assert exiftool._process is None
+
+
+async def test_write_tags_creates_a_new_sidecar_from_scratch(
+    tmp_path: Path, exiftool: ExifToolProcess
+) -> None:
+    sidecar = tmp_path / "photo.xmp"
+    assert not sidecar.is_file()
+
+    await exiftool.write_tags(
+        sidecar, {"Description": "a caption", "Rating": 4, "Subject": ["dog", "beach"]}
+    )
+
+    assert sidecar.is_file()
+    result = await exiftool.read_metadata(sidecar)
+    assert result["Description"] == "a caption"
+    assert result["Rating"] == 4
+    assert set(result["Subject"]) == {"dog", "beach"}
+
+
+async def test_write_tags_replaces_list_values_on_re_export_instead_of_accumulating(
+    tmp_path: Path, exiftool: ExifToolProcess
+) -> None:
+    sidecar = tmp_path / "photo.xmp"
+    await exiftool.write_tags(sidecar, {"Subject": ["dog", "beach"]})
+
+    await exiftool.write_tags(sidecar, {"Subject": ["cat", "mountain"]})
+
+    result = await exiftool.read_metadata(sidecar)
+    assert set(result["Subject"]) == {"cat", "mountain"}
+
+
+async def test_write_tags_never_touches_a_different_path(
+    tmp_path: Path, exiftool: ExifToolProcess
+) -> None:
+    original = tmp_path / "photo.jpg"
+    original.write_bytes(b"original bytes, untouched")
+    sidecar = tmp_path / "photo.xmp"
+
+    await exiftool.write_tags(sidecar, {"Description": "a caption"})
+
+    assert original.read_bytes() == b"original bytes, untouched"
+
+
+async def test_write_tags_raises_on_failure(tmp_path: Path, exiftool: ExifToolProcess) -> None:
+    missing_dir_sidecar = tmp_path / "does-not-exist" / "photo.xmp"
+
+    with pytest.raises(ExifToolWriteError):
+        await exiftool.write_tags(missing_dir_sidecar, {"Description": "a caption"})

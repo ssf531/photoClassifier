@@ -284,3 +284,15 @@ export function useBuiltinFilters() {
     },
   });
 }
+
+export function useExportXmp() {
+  return useMutation({
+    mutationFn: async (photoIds: string[]) => {
+      const { data, error } = await apiClient.POST("/api/v1/export/xmp", {
+        body: { photo_ids: photoIds },
+      });
+      if (error) throw error;
+      return data;
+    },
+  });
+}

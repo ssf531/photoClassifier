@@ -5,6 +5,7 @@ import type { AiResultSummary } from "../api/hooks";
 import {
   useAddCollectionMembers,
   useCollections,
+  useExportXmp,
   usePhotoDetail,
 } from "../api/hooks";
 import { thumbnailUrl } from "../api/thumbnailUrl";
@@ -58,6 +59,36 @@ function AddToCollection({ photoId }: { photoId: string }): React.JSX.Element {
         Add
       </button>
       {added && <span> Added.</span>}
+    </div>
+  );
+}
+
+function ExportXmpButton({ photoId }: { photoId: string }): React.JSX.Element {
+  const exportXmp = useExportXmp();
+  const [message, setMessage] = useState<string | null>(null);
+
+  const handleExport = (): void => {
+    setMessage(null);
+    exportXmp.mutate([photoId], {
+      onSuccess: (report) => {
+        const item = report?.items[0];
+        setMessage(
+          item?.success ? "Exported." : (item?.error ?? "Export failed."),
+        );
+      },
+    });
+  };
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={handleExport}
+        disabled={exportXmp.isPending}
+      >
+        Export to XMP
+      </button>
+      {message && <span> {message}</span>}
     </div>
   );
 }
@@ -145,6 +176,7 @@ export function PhotoDetail({ photoId }: PhotoDetailProps): React.JSX.Element {
       />
       <h2>{data.relative_path}</h2>
       <AddToCollection photoId={photoId} />
+      <ExportXmpButton photoId={photoId} />
       <dl>
         <dt>Camera</dt>
         <dd>

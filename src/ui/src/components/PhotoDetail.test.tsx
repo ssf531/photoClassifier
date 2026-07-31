@@ -153,4 +153,49 @@ describe("PhotoDetail", () => {
       },
     );
   });
+
+  it("exports the photo to XMP and reports success", async () => {
+    mockGetResponse(DETAIL_RESPONSE);
+    vi.mocked(apiClient.POST).mockResolvedValue({
+      data: { items: [{ photo_id: "photo-1", success: true, error: null }] },
+      error: undefined,
+      response: new Response(),
+    });
+
+    renderWithClient(<PhotoDetail photoId="photo-1" />);
+
+    await waitFor(() => screen.getByRole("button", { name: "Export to XMP" }));
+    fireEvent.click(screen.getByRole("button", { name: "Export to XMP" }));
+
+    await waitFor(() => screen.getByText("Exported."));
+    expect(apiClient.POST).toHaveBeenCalledWith("/api/v1/export/xmp", {
+      body: { photo_ids: ["photo-1"] },
+    });
+  });
+
+  it("shows the reported error when exporting to XMP fails", async () => {
+    mockGetResponse(DETAIL_RESPONSE);
+    vi.mocked(apiClient.POST).mockResolvedValue({
+      data: {
+        items: [
+          {
+            photo_id: "photo-1",
+            success: false,
+            error: "photo photo-1 has no AI result or rating to export",
+          },
+        ],
+      },
+      error: undefined,
+      response: new Response(),
+    });
+
+    renderWithClient(<PhotoDetail photoId="photo-1" />);
+
+    await waitFor(() => screen.getByRole("button", { name: "Export to XMP" }));
+    fireEvent.click(screen.getByRole("button", { name: "Export to XMP" }));
+
+    await waitFor(() =>
+      screen.getByText("photo photo-1 has no AI result or rating to export"),
+    );
+  });
 });

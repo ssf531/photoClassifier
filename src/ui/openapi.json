@@ -994,6 +994,62 @@
         }
       }
     },
+    "/api/v1/export/xmp": {
+      "post": {
+        "summary": "Export Xmp",
+        "operationId": "export_xmp_api_v1_export_xmp_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExportXmpRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportReport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/thumbnails/{photo_id}": {
       "get": {
         "summary": "Get Thumbnail",
@@ -1388,6 +1444,62 @@
         "type": "object",
         "required": ["id", "detection_method", "created_at", "members"],
         "title": "DuplicateGroupSummary"
+      },
+      "ExportReport": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ExportResultItem"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": ["items"],
+        "title": "ExportReport"
+      },
+      "ExportResultItem": {
+        "properties": {
+          "photo_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Photo Id"
+          },
+          "success": {
+            "type": "boolean",
+            "title": "Success"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": ["photo_id", "success"],
+        "title": "ExportResultItem"
+      },
+      "ExportXmpRequest": {
+        "properties": {
+          "photo_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Photo Ids"
+          }
+        },
+        "type": "object",
+        "required": ["photo_ids"],
+        "title": "ExportXmpRequest"
       },
       "GpsBoundingBoxRequest": {
         "properties": {

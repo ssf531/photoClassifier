@@ -21,7 +21,11 @@ from core.infrastructure.collection_repository import (
 )
 from core.infrastructure.db.engine import create_engine, create_session_factory
 from core.infrastructure.db.write_connection import WriteConnection
-from core.infrastructure.duplicate_repository import DuplicateGroupMemberRepository
+from core.infrastructure.duplicate_repository import (
+    DuplicateGroupMemberRepository,
+    DuplicateGroupRepository,
+)
+from core.infrastructure.duplicate_review_service import DuplicateReviewService
 from core.infrastructure.embedding_service import DefaultEmbeddingService
 from core.infrastructure.fts_search_index import FtsTextSearchIndex
 from core.infrastructure.gpu_resource_manager import (
@@ -142,8 +146,10 @@ async def compose(**settings_overrides: Any) -> Composition:
         SmartCollectionRuleRepository(sessions, writer),
         search_service,
     )
-    recommendation_engine = RecommendationEngine(
-        ai_result_repo, DuplicateGroupMemberRepository(sessions, writer)
+    duplicate_group_member_repo = DuplicateGroupMemberRepository(sessions, writer)
+    recommendation_engine = RecommendationEngine(ai_result_repo, duplicate_group_member_repo)
+    duplicate_review_service = DuplicateReviewService(
+        DuplicateGroupRepository(sessions, writer), duplicate_group_member_repo
     )
 
     app = create_app(
@@ -159,6 +165,7 @@ async def compose(**settings_overrides: Any) -> Composition:
         library_root_repo=library_root_repo,
         collection_manager=collection_manager,
         recommendation_engine=recommendation_engine,
+        duplicate_review_service=duplicate_review_service,
     )
 
     return Composition(settings=settings, scheduler=scheduler, app=app)

@@ -882,6 +882,72 @@
         }
       }
     },
+    "/api/v1/duplicate-groups": {
+      "get": {
+        "summary": "List Duplicate Groups",
+        "operationId": "list_duplicate_groups_api_v1_duplicate_groups_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DuplicateGroupListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/thumbnails/{photo_id}": {
       "get": {
         "summary": "Get Thumbnail",
@@ -1171,6 +1237,79 @@
         },
         "type": "object",
         "title": "DateRangeRequest"
+      },
+      "DuplicateGroupListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DuplicateGroupSummary"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Offset"
+          }
+        },
+        "type": "object",
+        "required": ["items", "next_offset"],
+        "title": "DuplicateGroupListResponse"
+      },
+      "DuplicateGroupMemberSummary": {
+        "properties": {
+          "photo_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Photo Id"
+          },
+          "similarity_score": {
+            "type": "number",
+            "title": "Similarity Score"
+          },
+          "is_recommended_keeper": {
+            "type": "boolean",
+            "title": "Is Recommended Keeper"
+          }
+        },
+        "type": "object",
+        "required": ["photo_id", "similarity_score", "is_recommended_keeper"],
+        "title": "DuplicateGroupMemberSummary"
+      },
+      "DuplicateGroupSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "detection_method": {
+            "type": "string",
+            "title": "Detection Method"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "members": {
+            "items": {
+              "$ref": "#/components/schemas/DuplicateGroupMemberSummary"
+            },
+            "type": "array",
+            "title": "Members"
+          }
+        },
+        "type": "object",
+        "required": ["id", "detection_method", "created_at", "members"],
+        "title": "DuplicateGroupSummary"
       },
       "GpsBoundingBoxRequest": {
         "properties": {

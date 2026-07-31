@@ -228,6 +228,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/duplicate-groups": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Duplicate Groups */
+    get: operations["list_duplicate_groups_api_v1_duplicate_groups_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/thumbnails/{photo_id}": {
     parameters: {
       query?: never;
@@ -342,6 +359,42 @@ export interface components {
       start?: string | null;
       /** End */
       end?: string | null;
+    };
+    /** DuplicateGroupListResponse */
+    DuplicateGroupListResponse: {
+      /** Items */
+      items: components["schemas"]["DuplicateGroupSummary"][];
+      /** Next Offset */
+      next_offset: number | null;
+    };
+    /** DuplicateGroupMemberSummary */
+    DuplicateGroupMemberSummary: {
+      /**
+       * Photo Id
+       * Format: uuid
+       */
+      photo_id: string;
+      /** Similarity Score */
+      similarity_score: number;
+      /** Is Recommended Keeper */
+      is_recommended_keeper: boolean;
+    };
+    /** DuplicateGroupSummary */
+    DuplicateGroupSummary: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Detection Method */
+      detection_method: string;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Members */
+      members: components["schemas"]["DuplicateGroupMemberSummary"][];
     };
     /** GpsBoundingBoxRequest */
     GpsBoundingBoxRequest: {
@@ -1111,6 +1164,40 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["RecommendationListResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_duplicate_groups_api_v1_duplicate_groups_get: {
+    parameters: {
+      query?: {
+        limit?: number;
+        offset?: number;
+      };
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DuplicateGroupListResponse"];
         };
       };
       /** @description Validation Error */

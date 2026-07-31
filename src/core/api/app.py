@@ -19,6 +19,7 @@ from core.domain.collections import (
     CollectionMembersResponse,
     CollectionSummary,
 )
+from core.domain.duplicates import DuplicateGroupListResponse
 from core.domain.library import (
     AiResultSummary,
     LibraryRootCreateRequest,
@@ -45,6 +46,7 @@ from core.domain.version import CORE_API_VERSION, HealthResponse, VersionRespons
 from core.infrastructure.ai_result_repository import AiResultRepository
 from core.infrastructure.collection_manager import CollectionManager, UnknownCollectionError
 from core.infrastructure.db.library_models import LibraryRoot
+from core.infrastructure.duplicate_review_service import DuplicateReviewService
 from core.infrastructure.library_repository import LibraryRootRepository, PhotoRepository
 from core.infrastructure.metadata_repository import MetadataRepository
 from core.infrastructure.plugin_repository import PluginRepository
@@ -61,6 +63,8 @@ _MAX_PLUGIN_LIST_LIMIT = 500
 _MAX_PHOTO_LIST_LIMIT = 500
 
 _MAX_COLLECTION_MEMBERS_LIMIT = 500
+
+_MAX_DUPLICATE_GROUP_LIST_LIMIT = 500
 
 UI_DIST_DIR = Path(__file__).resolve().parents[3] / "src" / "ui" / "dist"
 
@@ -110,6 +114,7 @@ def create_app(
     library_root_repo: LibraryRootRepository | None = None,
     collection_manager: CollectionManager | None = None,
     recommendation_engine: RecommendationEngine | None = None,
+    duplicate_review_service: DuplicateReviewService | None = None,
     ui_dist_dir: Path = UI_DIST_DIR,
 ) -> FastAPI:
     launch_token = token or generate_launch_token()
@@ -130,6 +135,7 @@ def create_app(
     app.state.library_root_repo = library_root_repo
     app.state.collection_manager = collection_manager
     app.state.recommendation_engine = recommendation_engine
+    app.state.duplicate_review_service = duplicate_review_service
 
     @app.get("/health", dependencies=[Depends(require_bearer_token)])
     def health() -> HealthResponse:
@@ -369,6 +375,22 @@ def create_app(
         if engine is None:
             raise HTTPException(status_code=503, detail="recommendation engine not configured")
         return RecommendationListResponse(items=await engine.list_recommendations())
+
+    @app.get("/api/v1/duplicate-groups", dependencies=[Depends(require_bearer_token)])
+    async def list_duplicate_groups(
+        request: Request, limit: int = 100, offset: int = 0
+    ) -> DuplicateGroupListResponse:
+        service = request.app.state.duplicate_review_service
+        if service is None:
+            raise HTTPException(status_code=503, detail="duplicate review service not configured")
+        if not 1 <= limit <= _MAX_DUPLICATE_GROUP_LIST_LIMIT:
+            raise HTTPException(
+                status_code=422,
+                detail=f"limit must be between 1 and {_MAX_DUPLICATE_GROUP_LIST_LIMIT}",
+            )
+        groups = await service.list_groups(limit=limit, offset=offset)
+        next_offset = offset + limit if len(groups) == limit else None
+        return DuplicateGroupListResponse(items=groups, next_offset=next_offset)
 
     @app.get("/api/v1/thumbnails/{photo_id}", dependencies=[Depends(require_bearer_or_query_token)])
     async def get_thumbnail(photo_id: uuid.UUID, size: ThumbSize, request: Request) -> Response:

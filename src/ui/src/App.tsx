@@ -4,6 +4,7 @@ import { BrowserRouter, Link, Route, Routes } from "react-router-dom";
 
 import { ProgressSocketProvider } from "./api/ProgressSocketContext";
 import { CollectionsPage } from "./routes/CollectionsPage";
+import { DuplicateReviewPage } from "./routes/DuplicateReviewPage";
 import { GridPage } from "./routes/GridPage";
 import { OnboardingPage } from "./routes/OnboardingPage";
 import { PhotoDetailRoute } from "./routes/PhotoDetailRoute";
@@ -26,6 +27,7 @@ export function App(): React.JSX.Element {
             <Link to="/plugins">Plugins</Link>
             <Link to="/collections">Collections</Link>
             <Link to="/recommendations">Recommendations</Link>
+            <Link to="/duplicates">Duplicate Review</Link>
             <Link to="/onboarding">Onboarding</Link>
           </nav>
           <Routes>
@@ -35,6 +37,7 @@ export function App(): React.JSX.Element {
             <Route path="/plugins" element={<PluginsPage />} />
             <Route path="/collections" element={<CollectionsPage />} />
             <Route path="/recommendations" element={<RecommendationsPage />} />
+            <Route path="/duplicates" element={<DuplicateReviewPage />} />
             <Route path="/onboarding" element={<OnboardingPage />} />
             <Route path="/photo/:photoId" element={<PhotoDetailRoute />} />
           </Routes>

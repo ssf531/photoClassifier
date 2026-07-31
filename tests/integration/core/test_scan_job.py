@@ -6,15 +6,19 @@ from pathlib import Path
 import pytest
 
 from core.domain.library import FileStatus
+from core.domain.plugins import Capability
 from core.domain.scheduler import JobSpec, JobStatus
+from core.infrastructure.analysis_job import ANALYSIS_JOB_TYPE
 from core.infrastructure.db.base import Base
 from core.infrastructure.db.engine import create_engine, create_session_factory
 from core.infrastructure.db.library_models import LibraryRoot
+from core.infrastructure.db.plugin_models import Plugin  # noqa: F401 -- registers `plugin`
 from core.infrastructure.db.write_connection import WriteConnection
 from core.infrastructure.library_repository import LibraryRootRepository, PhotoRepository
 from core.infrastructure.scan_job import SCAN_JOB_TYPE, _utcnow, create_scan_job_handler
 from core.infrastructure.scheduler import (
     InProcessTaskScheduler,
+    JobContext,
     JobItemRepository,
     JobRepository,
 )
@@ -180,6 +184,109 @@ async def test_missing_file_reverts_to_active_when_it_reappears(
     assert reappeared.id == created.id
     assert reappeared.status == FileStatus.ACTIVE.value
     assert reappeared.content_hash == created.content_hash
+
+
+async def _run_scan_and_await_any_triggered_analysis(
+    scheduler: InProcessTaskScheduler, library_root_id: uuid.UUID
+) -> None:
+    """The scan handler enqueues an analysis job as a separate background
+    task rather than awaiting its completion inline, so a test asserting on
+    that analysis job's effects must itself wait for it to finish too --
+    otherwise it can still be running (and touching the DB) after the test
+    function returns and the fixture tears down the connection.
+    """
+    stream = scheduler.progress_stream()
+    scan_job_id = await scheduler.enqueue(
+        JobSpec(job_type=SCAN_JOB_TYPE, params={"library_root_id": str(library_root_id)})
+    )
+    scan_done = False
+    async for event in stream:
+        if event.job_id == scan_job_id and event.status in TERMINAL_STATUSES:
+            assert event.status == JobStatus.COMPLETED
+            scan_done = True
+            continue
+        if scan_done and event.job_type == ANALYSIS_JOB_TYPE and event.status in TERMINAL_STATUSES:
+            break
+
+
+async def test_scan_enqueues_analysis_only_for_new_and_modified_photos(
+    tmp_path: Path, repos: _Repos
+) -> None:
+    library_dir = tmp_path / "library"
+    library_dir.mkdir()
+    (library_dir / "stays_unchanged.jpg").write_bytes(b"original")
+    (library_dir / "will_be_modified.jpg").write_bytes(b"original")
+
+    root = await repos.library_root_repo.create(LibraryRoot(path=str(library_dir)))
+
+    analysis_params: list[dict[str, object]] = []
+
+    async def fake_analysis_handler(ctx: JobContext) -> None:
+        analysis_params.append(dict(ctx.params))
+
+    scheduler = InProcessTaskScheduler(repos.job_repo, repos.item_repo)
+    scheduler.register_handler(ANALYSIS_JOB_TYPE, fake_analysis_handler)
+    scheduler.register_handler(
+        SCAN_JOB_TYPE,
+        create_scan_job_handler(
+            repos.photo_repo,
+            repos.library_root_repo,
+            scheduler=scheduler,
+            capabilities=[Capability.QUALITY],
+        ),
+    )
+
+    # Baseline: everything discovered on a brand-new library root is "new".
+    await _run_scan_and_await_any_triggered_analysis(scheduler, root.id)
+    analysis_params.clear()
+
+    photos = await repos.photo_repo.list_by_library_root(root.id, limit=10, offset=0)
+    unchanged_id = next(p.id for p in photos if p.relative_path == "stays_unchanged.jpg")
+    modified_id = next(p.id for p in photos if p.relative_path == "will_be_modified.jpg")
+
+    (library_dir / "will_be_modified.jpg").write_bytes(b"changed content")
+    (library_dir / "brand_new.jpg").write_bytes(b"new")
+
+    await _run_scan_and_await_any_triggered_analysis(scheduler, root.id)
+
+    assert len(analysis_params) == 1
+    photos_after = await repos.photo_repo.list_by_library_root(root.id, limit=10, offset=0)
+    new_id = next(p.id for p in photos_after if p.relative_path == "brand_new.jpg")
+
+    submitted_photo_ids = set(analysis_params[0]["photo_ids"])
+    assert submitted_photo_ids == {str(modified_id), str(new_id)}
+    assert str(unchanged_id) not in submitted_photo_ids
+    assert analysis_params[0]["capabilities"] == ["quality"]
+
+
+async def test_scan_does_not_enqueue_analysis_with_no_capabilities(
+    tmp_path: Path, repos: _Repos
+) -> None:
+    """SDD §16.4 degraded mode: with zero AI capabilities available, scanning
+    must still complete cleanly and simply not trigger any analysis job."""
+    library_dir = tmp_path / "library"
+    library_dir.mkdir()
+    (library_dir / "a.jpg").write_bytes(b"x")
+
+    root = await repos.library_root_repo.create(LibraryRoot(path=str(library_dir)))
+
+    analysis_params: list[dict[str, object]] = []
+
+    async def fake_analysis_handler(ctx: JobContext) -> None:
+        analysis_params.append(dict(ctx.params))
+
+    scheduler = InProcessTaskScheduler(repos.job_repo, repos.item_repo)
+    scheduler.register_handler(ANALYSIS_JOB_TYPE, fake_analysis_handler)
+    scheduler.register_handler(
+        SCAN_JOB_TYPE,
+        create_scan_job_handler(
+            repos.photo_repo, repos.library_root_repo, scheduler=scheduler, capabilities=[]
+        ),
+    )
+
+    await _run_scan_to_completion(scheduler, root.id)
+
+    assert analysis_params == []
 
 
 async def test_absent_file_marked_deleted_after_grace_period_elapses(

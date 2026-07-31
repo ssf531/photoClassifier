@@ -9,9 +9,14 @@ from fastapi import FastAPI
 
 from alembic import command
 from core.api.app import create_app
+from core.domain.plugins import Capability
+from core.domain.providers import CaptionResult, ImageRef, QualityResult, TagResult
 from core.domain.scheduler import TaskScheduler
 from core.domain.settings import AppSettings, data_dir, models_dir, thumbnails_dir
 from core.infrastructure.ai_result_repository import AiResultRepository, EmbeddingRefRepository
+from core.infrastructure.analysis_job import ANALYSIS_JOB_TYPE, create_analysis_job_handler
+from core.infrastructure.analysis_pipeline import AnalysisPipeline
+from core.infrastructure.caption_provider import CaptioningProvider
 from core.infrastructure.clip_embedding_provider import ClipEmbeddingProvider
 from core.infrastructure.collection_manager import CollectionManager
 from core.infrastructure.collection_repository import (
@@ -39,13 +44,16 @@ from core.infrastructure.gpu_resource_manager import (
 from core.infrastructure.library_repository import LibraryRootRepository, PhotoRepository
 from core.infrastructure.metadata_repository import MetadataRepository
 from core.infrastructure.plugin_discovery import discover_plugins
-from core.infrastructure.plugin_lifecycle import sync_discovered_plugins
+from core.infrastructure.plugin_lifecycle import list_enabled_manifests, sync_discovered_plugins
 from core.infrastructure.plugin_repository import PluginRepository
+from core.infrastructure.provider_registry import ProviderRegistry
+from core.infrastructure.quality_provider import QualityAssessmentProvider
 from core.infrastructure.recommendation_engine import RecommendationEngine
 from core.infrastructure.scan_job import SCAN_JOB_TYPE, create_scan_job_handler
 from core.infrastructure.scheduler import InProcessTaskScheduler, JobItemRepository, JobRepository
 from core.infrastructure.search_service import DefaultSearchService
 from core.infrastructure.settings_toml import TomlSettingsService
+from core.infrastructure.tag_provider import TaggingProvider
 from core.infrastructure.thumbnail_cache import ThumbnailCacheManager
 from core.infrastructure.thumbnail_service import ThumbnailService
 from core.infrastructure.vec_embedding_index import SqliteVecEmbeddingIndex
@@ -56,6 +64,18 @@ _CLIP_PROVIDER_ID = "clip"
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _BUILTIN_PLUGINS_DIR = Path(__file__).resolve().parent / "plugins"
 _BYTES_PER_MB = 1024 * 1024
+
+
+async def _invoke_caption(provider: CaptioningProvider, image: ImageRef) -> CaptionResult:
+    return await provider.caption(image)
+
+
+async def _invoke_tag(provider: TaggingProvider, image: ImageRef) -> TagResult:
+    return await provider.tag(image)
+
+
+async def _invoke_quality(provider: QualityAssessmentProvider, image: ImageRef) -> QualityResult:
+    return await provider.assess(image)
 
 
 def _alembic_config(db_path: Path) -> Config:
@@ -92,9 +112,8 @@ async def compose(**settings_overrides: Any) -> Composition:
     writer = WriteConnection(engine)
     sessions = create_session_factory(engine)
 
-    scheduler = InProcessTaskScheduler(
-        JobRepository(sessions, writer), JobItemRepository(sessions, writer)
-    )
+    job_item_repo = JobItemRepository(sessions, writer)
+    scheduler = InProcessTaskScheduler(JobRepository(sessions, writer), job_item_repo)
     library_root_repo = LibraryRootRepository(sessions, writer)
     photo_repo = PhotoRepository(sessions, writer)
     metadata_repo = MetadataRepository(sessions, writer)
@@ -114,21 +133,64 @@ async def compose(**settings_overrides: Any) -> Composition:
         preview_size_px=settings.thumbnail_preview_size_px,
     )
 
-    await sync_discovered_plugins(discover_plugins(_BUILTIN_PLUGINS_DIR), plugin_repo)
+    discovery = discover_plugins(_BUILTIN_PLUGINS_DIR)
+    await sync_discovered_plugins(discovery, plugin_repo)
+    enabled_capabilities = {
+        manifest.capability for manifest in await list_enabled_manifests(discovery, plugin_repo)
+    }
 
+    execution_provider = select_execution_provider(override=settings.gpu_execution_provider)
+    # One shared semaphore across every ONNX-inference provider (ADR-0009):
+    # a single global Semaphore(1) serializes GPU/CPU inference regardless of
+    # which capability is calling, so it must be constructed once here and
+    # passed to each provider, never created per-provider.
+    inference_semaphore = create_inference_semaphore()
+    clip_provider = ClipEmbeddingProvider(models_dir(), inference_semaphore, execution_provider)
+    caption_provider = CaptioningProvider(models_dir(), inference_semaphore, execution_provider)
+    tagging_provider = TaggingProvider(clip_provider)
+    quality_provider = QualityAssessmentProvider()
+
+    # A capability is only registered with the pipeline if its plugin is
+    # enabled AND (where applicable) its model is actually downloaded --
+    # otherwise `ProviderRegistry.get_provider` raises `UnresolvedCapabilityError`,
+    # which the pipeline records as a clean `capability_unavailable` failure
+    # (SDD §16.4 degraded mode) rather than a provider crashing on first use.
+    capability_providers: dict[Capability, Any] = {}
+    if Capability.CAPTION in enabled_capabilities and caption_provider.is_available():
+        capability_providers[Capability.CAPTION] = caption_provider
+    if Capability.TAG in enabled_capabilities and tagging_provider.is_available():
+        capability_providers[Capability.TAG] = tagging_provider
+    if Capability.QUALITY in enabled_capabilities:
+        capability_providers[Capability.QUALITY] = quality_provider
+
+    provider_registry = ProviderRegistry(capability_providers)
+    analysis_pipeline = AnalysisPipeline(
+        provider_registry,
+        ai_result_repo,
+        {
+            Capability.CAPTION: _invoke_caption,
+            Capability.TAG: _invoke_tag,
+            Capability.QUALITY: _invoke_quality,
+        },
+    )
+
+    scheduler.register_handler(
+        ANALYSIS_JOB_TYPE,
+        create_analysis_job_handler(
+            analysis_pipeline, photo_repo, library_root_repo, job_item_repo
+        ),
+    )
     scheduler.register_handler(
         SCAN_JOB_TYPE,
         create_scan_job_handler(
             photo_repo,
             library_root_repo,
             grace_period_days=settings.missing_photo_grace_period_days,
+            scheduler=scheduler,
+            capabilities=list(provider_registry.capabilities()),
         ),
     )
 
-    execution_provider = select_execution_provider(override=settings.gpu_execution_provider)
-    clip_provider = ClipEmbeddingProvider(
-        models_dir(), create_inference_semaphore(), execution_provider
-    )
     vec_index = SqliteVecEmbeddingIndex(sessions, writer)
     embedding_service = DefaultEmbeddingService(
         providers={_CLIP_PROVIDER_ID: clip_provider},

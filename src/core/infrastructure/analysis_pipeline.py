@@ -15,12 +15,20 @@ PROVIDER_ERROR = "provider_error"
 class GenericCapabilityResult(Protocol):
     """Structural shape every `*Result` DTO satisfies (SDD §6.1), letting the
     pipeline persist any capability's result without knowing its specific
-    shape."""
+    shape. Declared as read-only properties, not plain attributes: every
+    concrete `*Result` is a frozen dataclass, and mypy treats a frozen
+    dataclass's fields as read-only, which a Protocol's plain (implicitly
+    read-write) attributes don't structurally match.
+    """
 
-    provider_id: str
-    model_version: str
-    confidence: float
-    raw_payload: dict[str, Any]
+    @property
+    def provider_id(self) -> str: ...
+    @property
+    def model_version(self) -> str: ...
+    @property
+    def confidence(self) -> float: ...
+    @property
+    def raw_payload(self) -> dict[str, Any]: ...
 
 
 CapabilityInvoker = Callable[[Any, ImageRef], Awaitable[GenericCapabilityResult]]

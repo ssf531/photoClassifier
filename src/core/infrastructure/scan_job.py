@@ -1,9 +1,12 @@
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 
 from core.domain.library import FileStatus
+from core.domain.plugins import Capability
+from core.domain.scheduler import JobSpec, TaskScheduler
+from core.infrastructure.analysis_job import ANALYSIS_JOB_TYPE
 from core.infrastructure.change_detection import (
     ChangeKind,
     Classification,
@@ -119,7 +122,15 @@ def create_scan_job_handler(
     photo_repo: PhotoRepository,
     library_root_repo: LibraryRootRepository,
     grace_period_days: int = 30,
+    scheduler: TaskScheduler | None = None,
+    capabilities: Sequence[Capability] = (),
 ) -> Callable[[JobContext], Awaitable[None]]:
+    """`scheduler`/`capabilities` are optional so degraded mode (zero models
+    installed, SDD §16.4) and existing tests that only exercise scanning
+    keep working unchanged: with no capabilities to run, or no scheduler to
+    enqueue through, scanning simply doesn't trigger analysis afterward.
+    """
+
     async def handler(ctx: JobContext) -> None:
         raw_library_root_id = ctx.params.get("library_root_id")
         if not isinstance(raw_library_root_id, str):
@@ -152,15 +163,29 @@ def create_scan_job_handler(
         classifications = classify_changes(discovered, existing, is_local=is_local)
 
         matched_photo_ids: set[uuid.UUID] = set()
+        photos_needing_analysis: list[uuid.UUID] = []
         for index, classification in enumerate(classifications):
             if ctx.is_cancelled():
                 return
             photo_id = await _apply_classification(photo_repo, library_root_id, classification)
             matched_photo_ids.add(photo_id)
+            if classification.kind in (ChangeKind.NEW, ChangeKind.MODIFIED):
+                photos_needing_analysis.append(photo_id)
             await ctx.complete_item(index, total, file_id=photo_id)
 
         await _reconcile_absent_photos(
             photo_repo, existing_rows, matched_photo_ids, grace_period_days
         )
+
+        if scheduler is not None and capabilities and photos_needing_analysis:
+            await scheduler.enqueue(
+                JobSpec(
+                    job_type=ANALYSIS_JOB_TYPE,
+                    params={
+                        "photo_ids": [str(photo_id) for photo_id in photos_needing_analysis],
+                        "capabilities": [capability.value for capability in capabilities],
+                    },
+                )
+            )
 
     return handler

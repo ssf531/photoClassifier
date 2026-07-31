@@ -14,6 +14,8 @@ export interface PhotoGridProps {
   photos: PhotoSummary[];
   onEndReached?: () => void;
   onPhotoClick?: (photo: PhotoSummary) => void;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (photo: PhotoSummary) => void;
 }
 
 /**
@@ -27,6 +29,8 @@ export function PhotoGrid({
   photos,
   onEndReached,
   onPhotoClick,
+  selectedIds,
+  onToggleSelect,
 }: PhotoGridProps): React.JSX.Element {
   const parentRef = useRef<HTMLDivElement>(null);
   const rowCount = Math.ceil(photos.length / COLUMN_COUNT);
@@ -78,19 +82,32 @@ export function PhotoGrid({
               }}
             >
               {rowPhotos.map((photo) => (
-                <img
-                  key={photo.id}
-                  src={thumbnailUrl(photo.id)}
-                  alt={photo.relative_path}
-                  loading="lazy"
-                  onClick={onPhotoClick ? () => onPhotoClick(photo) : undefined}
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
-                    cursor: onPhotoClick ? "pointer" : undefined,
-                  }}
-                />
+                <div key={photo.id} style={{ position: "relative" }}>
+                  <img
+                    src={thumbnailUrl(photo.id)}
+                    alt={photo.relative_path}
+                    loading="lazy"
+                    onClick={
+                      onPhotoClick ? () => onPhotoClick(photo) : undefined
+                    }
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      cursor: onPhotoClick ? "pointer" : undefined,
+                    }}
+                  />
+                  {onToggleSelect && (
+                    <input
+                      type="checkbox"
+                      aria-label={`Select ${photo.relative_path}`}
+                      checked={selectedIds?.has(photo.id) ?? false}
+                      onClick={(event) => event.stopPropagation()}
+                      onChange={() => onToggleSelect(photo)}
+                      style={{ position: "absolute", top: 4, left: 4 }}
+                    />
+                  )}
+                </div>
               ))}
             </div>
           );

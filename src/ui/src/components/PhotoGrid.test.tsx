@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { PhotoSummary } from "../api/hooks";
@@ -68,5 +68,52 @@ describe("PhotoGrid", () => {
     render(<PhotoGrid photos={makePhotos(10)} onEndReached={onEndReached} />);
 
     expect(onEndReached).toHaveBeenCalled();
+  });
+
+  it("renders no selection checkboxes when onToggleSelect is not provided", () => {
+    mockViewportHeight(600);
+
+    render(<PhotoGrid photos={makePhotos(10)} />);
+
+    expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
+  });
+
+  it("toggles selection via checkbox without triggering onPhotoClick", () => {
+    mockViewportHeight(600);
+    const onPhotoClick = vi.fn();
+    const onToggleSelect = vi.fn();
+
+    render(
+      <PhotoGrid
+        photos={makePhotos(10)}
+        onPhotoClick={onPhotoClick}
+        selectedIds={new Set()}
+        onToggleSelect={onToggleSelect}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("Select photo-0.jpg"));
+
+    expect(onToggleSelect).toHaveBeenCalledWith(makePhotos(1)[0]);
+    expect(onPhotoClick).not.toHaveBeenCalled();
+  });
+
+  it("reflects selectedIds as checked checkboxes", () => {
+    mockViewportHeight(600);
+
+    render(
+      <PhotoGrid
+        photos={makePhotos(10)}
+        selectedIds={new Set(["photo-1"])}
+        onToggleSelect={vi.fn()}
+      />,
+    );
+
+    expect(
+      (screen.getByLabelText("Select photo-1.jpg") as HTMLInputElement).checked,
+    ).toBe(true);
+    expect(
+      (screen.getByLabelText("Select photo-0.jpg") as HTMLInputElement).checked,
+    ).toBe(false);
   });
 });

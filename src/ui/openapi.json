@@ -1050,6 +1050,62 @@
         }
       }
     },
+    "/api/v1/export/copy": {
+      "post": {
+        "summary": "Copy To Folder",
+        "operationId": "copy_to_folder_api_v1_export_copy_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CopyToFolderRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CopyReport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/thumbnails/{photo_id}": {
       "get": {
         "summary": "Get Thumbnail",
@@ -1341,6 +1397,77 @@
         "type": "object",
         "required": ["id", "name", "type", "created_at", "item_count"],
         "title": "CollectionSummary"
+      },
+      "CopyReport": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CopyResultItem"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": ["items"],
+        "title": "CopyReport"
+      },
+      "CopyResultItem": {
+        "properties": {
+          "photo_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Photo Id"
+          },
+          "success": {
+            "type": "boolean",
+            "title": "Success"
+          },
+          "destination_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Destination Path"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": ["photo_id", "success"],
+        "title": "CopyResultItem"
+      },
+      "CopyToFolderRequest": {
+        "properties": {
+          "photo_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Photo Ids"
+          },
+          "destination_folder": {
+            "type": "string",
+            "title": "Destination Folder"
+          }
+        },
+        "type": "object",
+        "required": ["photo_ids", "destination_folder"],
+        "title": "CopyToFolderRequest"
       },
       "DateRangeRequest": {
         "properties": {

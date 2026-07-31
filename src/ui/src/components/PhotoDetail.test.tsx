@@ -198,4 +198,52 @@ describe("PhotoDetail", () => {
       screen.getByText("photo photo-1 has no AI result or rating to export"),
     );
   });
+
+  it("copies the photo to the entered destination folder", async () => {
+    mockGetResponse(DETAIL_RESPONSE);
+    vi.mocked(apiClient.POST).mockResolvedValue({
+      data: {
+        items: [
+          {
+            photo_id: "photo-1",
+            success: true,
+            destination_path: "C:/Export/beach.jpg",
+            error: null,
+          },
+        ],
+      },
+      error: undefined,
+      response: new Response(),
+    });
+
+    renderWithClient(<PhotoDetail photoId="photo-1" />);
+
+    await waitFor(() => screen.getByLabelText("Destination folder"));
+    fireEvent.change(screen.getByLabelText("Destination folder"), {
+      target: { value: "C:/Export" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Copy" }));
+
+    await waitFor(() => screen.getByText("Copied."));
+    expect(apiClient.POST).toHaveBeenCalledWith("/api/v1/export/copy", {
+      body: { photo_ids: ["photo-1"], destination_folder: "C:/Export" },
+    });
+  });
+
+  it("keeps the copy action disabled until a destination folder is entered", async () => {
+    mockGetResponse(DETAIL_RESPONSE);
+
+    renderWithClient(<PhotoDetail photoId="photo-1" />);
+
+    await waitFor(() => screen.getByLabelText("Destination folder"));
+    const copyButton = screen.getByRole("button", {
+      name: "Copy",
+    }) as HTMLButtonElement;
+    expect(copyButton.disabled).toBe(true);
+
+    fireEvent.change(screen.getByLabelText("Destination folder"), {
+      target: { value: "C:/Export" },
+    });
+    expect(copyButton.disabled).toBe(false);
+  });
 });

@@ -20,6 +20,7 @@ from core.domain.collections import (
     CollectionMembersResponse,
     CollectionSummary,
 )
+from core.domain.copy_export import CopyReport, CopyToFolderRequest
 from core.domain.duplicates import DuplicateGroupListResponse
 from core.domain.export import ExportReport, ExportXmpRequest
 from core.domain.library import (
@@ -48,6 +49,7 @@ from core.domain.version import CORE_API_VERSION, HealthResponse, VersionRespons
 from core.infrastructure.ai_result_repository import AiResultRepository
 from core.infrastructure.builtin_filters import BUILTIN_FILTER_PRESETS
 from core.infrastructure.collection_manager import CollectionManager, UnknownCollectionError
+from core.infrastructure.copy_export_manager import CopyExportManager
 from core.infrastructure.db.library_models import LibraryRoot
 from core.infrastructure.duplicate_review_service import DuplicateReviewService
 from core.infrastructure.library_repository import LibraryRootRepository, PhotoRepository
@@ -120,6 +122,7 @@ def create_app(
     recommendation_engine: RecommendationEngine | None = None,
     duplicate_review_service: DuplicateReviewService | None = None,
     xmp_export_manager: XmpExportManager | None = None,
+    copy_export_manager: CopyExportManager | None = None,
     ui_dist_dir: Path = UI_DIST_DIR,
 ) -> FastAPI:
     launch_token = token or generate_launch_token()
@@ -142,6 +145,7 @@ def create_app(
     app.state.recommendation_engine = recommendation_engine
     app.state.duplicate_review_service = duplicate_review_service
     app.state.xmp_export_manager = xmp_export_manager
+    app.state.copy_export_manager = copy_export_manager
 
     @app.get("/health", dependencies=[Depends(require_bearer_token)])
     def health() -> HealthResponse:
@@ -408,6 +412,14 @@ def create_app(
         if manager is None:
             raise HTTPException(status_code=503, detail="XMP export manager not configured")
         return ExportReport(items=await manager.export_xmp(body.photo_ids))
+
+    @app.post("/api/v1/export/copy", dependencies=[Depends(require_bearer_token)])
+    async def copy_to_folder(body: CopyToFolderRequest, request: Request) -> CopyReport:
+        manager = request.app.state.copy_export_manager
+        if manager is None:
+            raise HTTPException(status_code=503, detail="copy export manager not configured")
+        items = await manager.copy_to_folder(body.photo_ids, body.destination_folder)
+        return CopyReport(items=items)
 
     @app.get("/api/v1/thumbnails/{photo_id}", dependencies=[Depends(require_bearer_or_query_token)])
     async def get_thumbnail(photo_id: uuid.UUID, size: ThumbSize, request: Request) -> Response:

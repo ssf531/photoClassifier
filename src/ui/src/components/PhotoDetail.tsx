@@ -5,6 +5,7 @@ import type { AiResultSummary } from "../api/hooks";
 import {
   useAddCollectionMembers,
   useCollections,
+  useCopyToFolder,
   useExportXmp,
   usePhotoDetail,
 } from "../api/hooks";
@@ -87,6 +88,53 @@ function ExportXmpButton({ photoId }: { photoId: string }): React.JSX.Element {
         disabled={exportXmp.isPending}
       >
         Export to XMP
+      </button>
+      {message && <span> {message}</span>}
+    </div>
+  );
+}
+
+function CopyToFolder({ photoId }: { photoId: string }): React.JSX.Element {
+  const copyToFolder = useCopyToFolder();
+  const [destination, setDestination] = useState("");
+  const [message, setMessage] = useState<string | null>(null);
+
+  const handleCopy = (): void => {
+    const trimmed = destination.trim();
+    if (!trimmed) {
+      return;
+    }
+    setMessage(null);
+    copyToFolder.mutate(
+      { photoIds: [photoId], destinationFolder: trimmed },
+      {
+        onSuccess: (report) => {
+          const item = report?.items[0];
+          setMessage(
+            item?.success ? "Copied." : (item?.error ?? "Copy failed."),
+          );
+        },
+      },
+    );
+  };
+
+  return (
+    <div>
+      <label>
+        Copy to folder
+        <input
+          type="text"
+          aria-label="Destination folder"
+          value={destination}
+          onChange={(event) => setDestination(event.target.value)}
+        />
+      </label>
+      <button
+        type="button"
+        onClick={handleCopy}
+        disabled={!destination.trim() || copyToFolder.isPending}
+      >
+        Copy
       </button>
       {message && <span> {message}</span>}
     </div>
@@ -177,6 +225,7 @@ export function PhotoDetail({ photoId }: PhotoDetailProps): React.JSX.Element {
       <h2>{data.relative_path}</h2>
       <AddToCollection photoId={photoId} />
       <ExportXmpButton photoId={photoId} />
+      <CopyToFolder photoId={photoId} />
       <dl>
         <dt>Camera</dt>
         <dd>

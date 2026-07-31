@@ -279,6 +279,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/export/copy": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Copy To Folder */
+    post: operations["copy_to_folder_api_v1_export_copy_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/thumbnails/{photo_id}": {
     parameters: {
       query?: never;
@@ -399,6 +416,32 @@ export interface components {
       created_at: string;
       /** Item Count */
       item_count: number;
+    };
+    /** CopyReport */
+    CopyReport: {
+      /** Items */
+      items: components["schemas"]["CopyResultItem"][];
+    };
+    /** CopyResultItem */
+    CopyResultItem: {
+      /**
+       * Photo Id
+       * Format: uuid
+       */
+      photo_id: string;
+      /** Success */
+      success: boolean;
+      /** Destination Path */
+      destination_path?: string | null;
+      /** Error */
+      error?: string | null;
+    };
+    /** CopyToFolderRequest */
+    CopyToFolderRequest: {
+      /** Photo Ids */
+      photo_ids: string[];
+      /** Destination Folder */
+      destination_folder: string;
     };
     /** DateRangeRequest */
     DateRangeRequest: {
@@ -1361,6 +1404,41 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ExportReport"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  copy_to_folder_api_v1_export_copy_post: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CopyToFolderRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CopyReport"];
         };
       };
       /** @description Validation Error */

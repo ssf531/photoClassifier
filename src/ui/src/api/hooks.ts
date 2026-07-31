@@ -296,3 +296,21 @@ export function useExportXmp() {
     },
   });
 }
+
+export function useCopyToFolder() {
+  return useMutation({
+    mutationFn: async ({
+      photoIds,
+      destinationFolder,
+    }: {
+      photoIds: string[];
+      destinationFolder: string;
+    }) => {
+      const { data, error } = await apiClient.POST("/api/v1/export/copy", {
+        body: { photo_ids: photoIds, destination_folder: destinationFolder },
+      });
+      if (error) throw error;
+      return data;
+    },
+  });
+}

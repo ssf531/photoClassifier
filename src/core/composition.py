@@ -20,6 +20,7 @@ from core.infrastructure.collection_repository import (
     SmartCollectionRuleRepository,
     UserDataRepository,
 )
+from core.infrastructure.copy_export_manager import CopyExportManager
 from core.infrastructure.db.engine import create_engine, create_session_factory
 from core.infrastructure.db.write_connection import WriteConnection
 from core.infrastructure.duplicate_repository import (
@@ -171,6 +172,7 @@ async def compose(**settings_overrides: Any) -> Composition:
         if exiftool_path is not None
         else None
     )
+    copy_export_manager = CopyExportManager(photo_repo, library_root_repo)
 
     app = create_app(
         scheduler=scheduler,
@@ -187,6 +189,7 @@ async def compose(**settings_overrides: Any) -> Composition:
         recommendation_engine=recommendation_engine,
         duplicate_review_service=duplicate_review_service,
         xmp_export_manager=xmp_export_manager,
+        copy_export_manager=copy_export_manager,
     )
 
     return Composition(settings=settings, scheduler=scheduler, app=app)

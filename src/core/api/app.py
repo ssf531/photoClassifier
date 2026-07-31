@@ -30,6 +30,7 @@ from core.domain.library import (
     ScanResponse,
 )
 from core.domain.plugins import PluginListResponse, PluginSummary, PluginUpdateRequest
+from core.domain.recommendations import RecommendationListResponse
 from core.domain.scheduler import JobProgress, JobSpec, TaskScheduler
 from core.domain.search import (
     SearchQueryRequest,
@@ -47,6 +48,7 @@ from core.infrastructure.db.library_models import LibraryRoot
 from core.infrastructure.library_repository import LibraryRootRepository, PhotoRepository
 from core.infrastructure.metadata_repository import MetadataRepository
 from core.infrastructure.plugin_repository import PluginRepository
+from core.infrastructure.recommendation_engine import RecommendationEngine
 from core.infrastructure.scan_job import SCAN_JOB_TYPE
 from core.infrastructure.thumbnail_service import (
     PhotoNotFoundError,
@@ -107,6 +109,7 @@ def create_app(
     plugin_repo: PluginRepository | None = None,
     library_root_repo: LibraryRootRepository | None = None,
     collection_manager: CollectionManager | None = None,
+    recommendation_engine: RecommendationEngine | None = None,
     ui_dist_dir: Path = UI_DIST_DIR,
 ) -> FastAPI:
     launch_token = token or generate_launch_token()
@@ -126,6 +129,7 @@ def create_app(
     app.state.plugin_repo = plugin_repo
     app.state.library_root_repo = library_root_repo
     app.state.collection_manager = collection_manager
+    app.state.recommendation_engine = recommendation_engine
 
     @app.get("/health", dependencies=[Depends(require_bearer_token)])
     def health() -> HealthResponse:
@@ -358,6 +362,13 @@ def create_app(
             raise HTTPException(status_code=404, detail="collection not found") from exc
         next_offset = offset + limit if len(photo_ids) == limit else None
         return CollectionMembersResponse(photo_ids=photo_ids, next_offset=next_offset)
+
+    @app.get("/api/v1/recommendations", dependencies=[Depends(require_bearer_token)])
+    async def list_recommendations(request: Request) -> RecommendationListResponse:
+        engine = request.app.state.recommendation_engine
+        if engine is None:
+            raise HTTPException(status_code=503, detail="recommendation engine not configured")
+        return RecommendationListResponse(items=await engine.list_recommendations())
 
     @app.get("/api/v1/thumbnails/{photo_id}", dependencies=[Depends(require_bearer_or_query_token)])
     async def get_thumbnail(photo_id: uuid.UUID, size: ThumbSize, request: Request) -> Response:

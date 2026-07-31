@@ -836,6 +836,52 @@
         }
       }
     },
+    "/api/v1/recommendations": {
+      "get": {
+        "summary": "List Recommendations",
+        "operationId": "list_recommendations_api_v1_recommendations_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecommendationListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/thumbnails/{photo_id}": {
       "get": {
         "summary": "Get Thumbnail",
@@ -1459,6 +1505,44 @@
         "type": "object",
         "required": ["enabled"],
         "title": "PluginUpdateRequest"
+      },
+      "Recommendation": {
+        "properties": {
+          "category": {
+            "$ref": "#/components/schemas/RecommendationCategory"
+          },
+          "photo_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Photo Ids"
+          }
+        },
+        "type": "object",
+        "required": ["category", "photo_ids"],
+        "title": "Recommendation"
+      },
+      "RecommendationCategory": {
+        "type": "string",
+        "enum": ["screenshots", "low_quality", "near_duplicates"],
+        "title": "RecommendationCategory",
+        "description": "The v1 suggestion categories the Recommendation Engine can actually\nsupport with existing signals (SDD \u00a710.2; scope matched to TASK-080's\nconfirmed v1 filter set). \"Daily snapshots\" and \"burst groups\", named\nonly in FEAT-073's illustrative purpose text, have no defined detection\nsignal anywhere in the SDD or tag vocabulary and are deliberately not\nimplemented -- inventing one would be undocumented scope, not a spec."
+      },
+      "RecommendationListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Recommendation"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": ["items"],
+        "title": "RecommendationListResponse"
       },
       "ScanRequest": {
         "properties": {

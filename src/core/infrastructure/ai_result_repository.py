@@ -30,6 +30,23 @@ class AiResultRepository(SqlAlchemyRepository[AiResult]):
             )
             return list(result.scalars().all())
 
+    async def list_current_by_capability(
+        self, capability: str, *, limit: int, offset: int
+    ) -> list[AiResult]:
+        """Library-wide current results for one capability (e.g. every
+        photo's current `quality` payload), for the Recommendation Engine
+        (TASK-075) to scan without ever loading the whole `ai_result` table.
+        """
+        async with self._read_sessions() as session:
+            result = await session.execute(
+                select(AiResult)
+                .where(AiResult.capability == capability, AiResult.is_current.is_(True))
+                .order_by(AiResult.id)
+                .limit(limit)
+                .offset(offset)
+            )
+            return list(result.scalars().all())
+
     async def record_result(
         self,
         *,

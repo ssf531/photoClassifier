@@ -8,6 +8,7 @@ import { GridPage } from "./routes/GridPage";
 import { OnboardingPage } from "./routes/OnboardingPage";
 import { PhotoDetailRoute } from "./routes/PhotoDetailRoute";
 import { PluginsPage } from "./routes/PluginsPage";
+import { RecommendationsPage } from "./routes/RecommendationsPage";
 import { SearchPage } from "./routes/SearchPage";
 import { SettingsPage } from "./routes/SettingsPage";
 
@@ -24,6 +25,7 @@ export function App(): React.JSX.Element {
             <Link to="/settings">Settings</Link>
             <Link to="/plugins">Plugins</Link>
             <Link to="/collections">Collections</Link>
+            <Link to="/recommendations">Recommendations</Link>
             <Link to="/onboarding">Onboarding</Link>
           </nav>
           <Routes>
@@ -32,6 +34,7 @@ export function App(): React.JSX.Element {
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/plugins" element={<PluginsPage />} />
             <Route path="/collections" element={<CollectionsPage />} />
+            <Route path="/recommendations" element={<RecommendationsPage />} />
             <Route path="/onboarding" element={<OnboardingPage />} />
             <Route path="/photo/:photoId" element={<PhotoDetailRoute />} />
           </Routes>

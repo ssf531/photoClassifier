@@ -21,6 +21,7 @@ from core.infrastructure.collection_repository import (
 )
 from core.infrastructure.db.engine import create_engine, create_session_factory
 from core.infrastructure.db.write_connection import WriteConnection
+from core.infrastructure.duplicate_repository import DuplicateGroupMemberRepository
 from core.infrastructure.embedding_service import DefaultEmbeddingService
 from core.infrastructure.fts_search_index import FtsTextSearchIndex
 from core.infrastructure.gpu_resource_manager import (
@@ -32,6 +33,7 @@ from core.infrastructure.metadata_repository import MetadataRepository
 from core.infrastructure.plugin_discovery import discover_plugins
 from core.infrastructure.plugin_lifecycle import sync_discovered_plugins
 from core.infrastructure.plugin_repository import PluginRepository
+from core.infrastructure.recommendation_engine import RecommendationEngine
 from core.infrastructure.scan_job import SCAN_JOB_TYPE, create_scan_job_handler
 from core.infrastructure.scheduler import InProcessTaskScheduler, JobItemRepository, JobRepository
 from core.infrastructure.search_service import DefaultSearchService
@@ -140,6 +142,9 @@ async def compose(**settings_overrides: Any) -> Composition:
         SmartCollectionRuleRepository(sessions, writer),
         search_service,
     )
+    recommendation_engine = RecommendationEngine(
+        ai_result_repo, DuplicateGroupMemberRepository(sessions, writer)
+    )
 
     app = create_app(
         scheduler=scheduler,
@@ -153,6 +158,7 @@ async def compose(**settings_overrides: Any) -> Composition:
         plugin_repo=plugin_repo,
         library_root_repo=library_root_repo,
         collection_manager=collection_manager,
+        recommendation_engine=recommendation_engine,
     )
 
     return Composition(settings=settings, scheduler=scheduler, app=app)

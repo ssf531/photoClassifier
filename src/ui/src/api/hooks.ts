@@ -17,6 +17,7 @@ export type AppSettings = components["schemas"]["AppSettings"];
 export type SettingsPatch = components["schemas"]["SettingsPatch"];
 export type PluginSummary = components["schemas"]["PluginSummary"];
 export type CollectionSummary = components["schemas"]["CollectionSummary"];
+export type Recommendation = components["schemas"]["Recommendation"];
 
 const PHOTO_LIST_PAGE_SIZE = 200;
 
@@ -239,6 +240,17 @@ export function useAddCollectionMembers() {
       void queryClient.invalidateQueries({
         queryKey: ["collection-members", variables.collectionId],
       });
+    },
+  });
+}
+
+export function useRecommendations() {
+  return useQuery({
+    queryKey: ["recommendations"],
+    queryFn: async () => {
+      const { data, error } = await apiClient.GET("/api/v1/recommendations");
+      if (error) throw error;
+      return data;
     },
   });
 }

@@ -211,6 +211,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/recommendations": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Recommendations */
+    get: operations["list_recommendations_api_v1_recommendations_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/thumbnails/{photo_id}": {
     parameters: {
       query?: never;
@@ -438,6 +455,28 @@ export interface components {
     PluginUpdateRequest: {
       /** Enabled */
       enabled: boolean;
+    };
+    /** Recommendation */
+    Recommendation: {
+      category: components["schemas"]["RecommendationCategory"];
+      /** Photo Ids */
+      photo_ids: string[];
+    };
+    /**
+     * RecommendationCategory
+     * @description The v1 suggestion categories the Recommendation Engine can actually
+     *     support with existing signals (SDD §10.2; scope matched to TASK-080's
+     *     confirmed v1 filter set). "Daily snapshots" and "burst groups", named
+     *     only in FEAT-073's illustrative purpose text, have no defined detection
+     *     signal anywhere in the SDD or tag vocabulary and are deliberately not
+     *     implemented -- inventing one would be undocumented scope, not a spec.
+     * @enum {string}
+     */
+    RecommendationCategory: "screenshots" | "low_quality" | "near_duplicates";
+    /** RecommendationListResponse */
+    RecommendationListResponse: {
+      /** Items */
+      items: components["schemas"]["Recommendation"][];
     };
     /** ScanRequest */
     ScanRequest: {
@@ -1041,6 +1080,37 @@ export interface operations {
         };
         content: {
           "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_recommendations_api_v1_recommendations_get: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RecommendationListResponse"];
         };
       };
       /** @description Validation Error */

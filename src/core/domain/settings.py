@@ -53,6 +53,20 @@ def config_file_path() -> Path:
     return config_dir() / "config.toml"
 
 
+def bundle_root() -> Path:
+    """Root of the app's own bundled resources (alembic migrations, plugin
+    manifests, the built UI, tag vocabulary) -- as opposed to `data_dir()`,
+    which is where the user's *own* data lives. This is the source checkout
+    root when running from source, or PyInstaller's extraction directory
+    once frozen (SDD §3.14); the frozen build mirrors the same relative
+    layout as the source tree so every caller can join the same relative
+    path in either case.
+    """
+    if getattr(sys, "frozen", False):
+        return Path(sys._MEIPASS)  # type: ignore[attr-defined]
+    return Path(__file__).resolve().parents[3]
+
+
 class AppSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix=ENV_PREFIX, extra="ignore")
 

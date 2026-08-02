@@ -3,10 +3,11 @@ import math
 from pathlib import Path
 
 from core.domain.providers import ImageRef, TagResult, TagScore, Vector
+from core.domain.settings import bundle_root
 from core.infrastructure.clip_embedding_provider import ClipEmbeddingProvider
 
 PROVIDER_ID = "clip-zero-shot-tagging"
-DEFAULT_VOCABULARY_PATH = Path(__file__).resolve().parent.parent / "tag_vocabulary_v1.json"
+DEFAULT_VOCABULARY_PATH = bundle_root() / "src" / "core" / "tag_vocabulary_v1.json"
 
 TOP_K = 5
 # Empirically calibrated against this project's downloaded CLIP model: an

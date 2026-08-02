@@ -12,7 +12,7 @@ from core.api.app import create_app
 from core.domain.plugins import Capability
 from core.domain.providers import CaptionResult, ImageRef, QualityResult, TagResult
 from core.domain.scheduler import TaskScheduler
-from core.domain.settings import AppSettings, data_dir, models_dir, thumbnails_dir
+from core.domain.settings import AppSettings, bundle_root, data_dir, models_dir, thumbnails_dir
 from core.infrastructure.ai_result_repository import AiResultRepository, EmbeddingRefRepository
 from core.infrastructure.analysis_job import ANALYSIS_JOB_TYPE, create_analysis_job_handler
 from core.infrastructure.analysis_pipeline import AnalysisPipeline
@@ -63,8 +63,8 @@ from core.infrastructure.xmp_export_manager import XmpExportManager
 from core.logging_setup import configure_logging
 
 _CLIP_PROVIDER_ID = "clip"
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-_BUILTIN_PLUGINS_DIR = Path(__file__).resolve().parent / "plugins"
+_REPO_ROOT = bundle_root()
+_BUILTIN_PLUGINS_DIR = bundle_root() / "src" / "core" / "plugins"
 _BYTES_PER_MB = 1024 * 1024
 
 

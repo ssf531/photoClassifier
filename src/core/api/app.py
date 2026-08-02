@@ -49,7 +49,7 @@ from core.domain.search import (
     SearchService,
     search_query_from_request,
 )
-from core.domain.settings import AppSettings, SettingsPatch, SettingsService
+from core.domain.settings import AppSettings, SettingsPatch, SettingsService, bundle_root
 from core.domain.thumbnails import ThumbSize
 from core.domain.version import CORE_API_VERSION, HealthResponse, VersionResponse
 from core.infrastructure.ai_result_repository import AiResultRepository
@@ -81,7 +81,7 @@ _MAX_COLLECTION_MEMBERS_LIMIT = 500
 
 _MAX_DUPLICATE_GROUP_LIST_LIMIT = 500
 
-UI_DIST_DIR = Path(__file__).resolve().parents[3] / "src" / "ui" / "dist"
+UI_DIST_DIR = bundle_root() / "src" / "ui" / "dist"
 
 
 def _make_placeholder_jpeg() -> bytes:

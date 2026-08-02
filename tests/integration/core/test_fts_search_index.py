@@ -128,6 +128,27 @@ async def test_a_photo_matching_two_shadow_tables_ranks_above_one_matching_only_
     assert hits[0].score > hits[1].score
 
 
+async def test_matches_are_capped_per_shadow_table(
+    env: _Env, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression test (TASK-096's memory/streaming audit): the per-table
+    query must carry a real SQL `LIMIT`, not fetch every match unbounded --
+    otherwise a common term against a large library materializes an
+    unbounded fraction of it before any pagination happens. Lowering the
+    cap and confirming fewer matches come back than actually exist proves
+    the `LIMIT` is applied in SQL, not just a decorative constant.
+    """
+    import core.infrastructure.fts_search_index as fts_search_index
+
+    monkeypatch.setattr(fts_search_index, "_MAX_MATCHES_PER_TABLE", 2)
+    for i in range(5):
+        await _make_photo(env, f"desert-trip-{i}.jpg")
+
+    hits = await env.index.search("desert", limit=10)
+
+    assert len(hits) == 2
+
+
 async def test_limit_and_offset_paginate_the_ranked_results(env: _Env) -> None:
     photos = [await _make_photo(env, f"mountain-trip-{i}.jpg") for i in range(5)]
 

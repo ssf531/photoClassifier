@@ -7,6 +7,14 @@ from core.domain.search import TextSearchHit
 
 _SHADOW_TABLES = ("ai_result_fts", "photo_fts", "metadata_fts")
 
+# A per-table ceiling on how many of a table's best matches ever get pulled
+# into Python before scores are summed across tables and sorted. Without
+# this, a common query term (e.g. one word that appears in a large fraction
+# of captions) has no LIMIT at all and materializes an unbounded fraction
+# of the whole library -- generous enough that any realistic top-N page is
+# extremely unlikely to be affected by the cap.
+_MAX_MATCHES_PER_TABLE = 5000
+
 
 class FtsTextSearchIndex:
     """Queries the FTS5 shadow tables from TASK-032 (SDD §3.6/§7.3): each
@@ -29,9 +37,12 @@ class FtsTextSearchIndex:
         async with self._read_sessions() as session:
             for table in _SHADOW_TABLES:
                 query_sql = (
-                    f"SELECT photo_id, bm25({table}) AS rank FROM {table} WHERE {table} MATCH :q"
+                    f"SELECT photo_id, bm25({table}) AS rank FROM {table} "
+                    f"WHERE {table} MATCH :q ORDER BY rank LIMIT :cap"
                 )
-                result = await session.execute(text(query_sql), {"q": fts_query})
+                result = await session.execute(
+                    text(query_sql), {"q": fts_query, "cap": _MAX_MATCHES_PER_TABLE}
+                )
                 for photo_id_hex, rank in result.all():
                     photo_id = uuid.UUID(photo_id_hex)
                     scores[photo_id] = scores.get(photo_id, 0.0) + (-rank)

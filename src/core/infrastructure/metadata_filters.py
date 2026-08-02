@@ -1,7 +1,7 @@
 import uuid
 from collections.abc import Sequence
 
-from sqlalchemy import Select, func, select, text
+from sqlalchemy import Select, String, func, literal_column, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from core.domain.library import PhotoId
@@ -53,8 +53,7 @@ async def filter_photo_ids(
             query = query.where(UserData.rating >= filters.min_rating)
 
         if filters.gps_bbox is not None:
-            matching_ids = await _gps_bbox_photo_ids(session, filters.gps_bbox)
-            query = query.where(Photo.id.in_(matching_ids))
+            query = query.where(Photo.id.in_(_gps_bbox_photo_ids_subquery(filters.gps_bbox)))
 
         if filters.is_blurry is not None:
             query = query.where(Photo.id.in_(_blurry_photo_ids_subquery(filters.is_blurry)))
@@ -84,18 +83,23 @@ def _blurry_photo_ids_subquery(is_blurry: bool) -> Select[tuple[uuid.UUID]]:
     )
 
 
-async def _gps_bbox_photo_ids(session: AsyncSession, bbox: GpsBoundingBox) -> list[uuid.UUID]:
-    result = await session.execute(
-        text(
-            "SELECT photo_id FROM metadata_gps_rtree "
-            "WHERE min_lat >= :min_lat AND max_lat <= :max_lat "
-            "AND min_lon >= :min_lon AND max_lon <= :max_lon"
-        ),
-        {
-            "min_lat": bbox.min_lat,
-            "max_lat": bbox.max_lat,
-            "min_lon": bbox.min_lon,
-            "max_lon": bbox.max_lon,
-        },
+def _gps_bbox_photo_ids_subquery(bbox: GpsBoundingBox) -> Select[tuple[str]]:
+    """Stays a SQL subquery embedded via `Photo.id.in_(...)` -- like
+    `_blurry_photo_ids_subquery` -- rather than fetching matching ids into
+    a Python list first: a broad bounding box can match a large fraction
+    of the library, and re-embedding that many literals as an `IN (...)`
+    list risks both an unbounded in-memory list and SQLite's bound-
+    parameter ceiling. `metadata_gps_rtree` is a raw SQLite rtree virtual
+    table (not an ORM model), so this builds the subquery from
+    `literal_column`/`text` rather than a mapped `Table`.
+    """
+    return (
+        select(literal_column("photo_id", type_=String))
+        .select_from(text("metadata_gps_rtree"))
+        .where(
+            literal_column("min_lat") >= bbox.min_lat,
+            literal_column("max_lat") <= bbox.max_lat,
+            literal_column("min_lon") >= bbox.min_lon,
+            literal_column("max_lon") <= bbox.max_lon,
+        )
     )
-    return [uuid.UUID(photo_id_str) for (photo_id_str,) in result.all()]

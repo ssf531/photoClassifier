@@ -156,6 +156,8 @@ def _preprocess_image(path: Path) -> NDArray[np.float32]:
 
     resized = rgb.resize((IMAGE_SIZE, IMAGE_SIZE), Image.Resampling.BILINEAR)
     array = np.asarray(resized, dtype=np.float32) / np.float32(255.0)
-    array = (array - np.array(IMAGE_MEAN, dtype=np.float32)) / np.array(IMAGE_STD, dtype=np.float32)
+    array = (
+        (array - np.array(IMAGE_MEAN, dtype=np.float32)) / np.array(IMAGE_STD, dtype=np.float32)
+    ).astype(np.float32)
     array = array.transpose(2, 0, 1).astype(np.float32)
     return array[np.newaxis, :, :, :]

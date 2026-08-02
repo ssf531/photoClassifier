@@ -8,9 +8,6 @@ from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as package_version
 from pathlib import Path
 
-import onnxruntime as ort
-import rawpy
-
 from core.domain.plugins import PluginManifest
 from core.domain.settings import SettingsService
 from core.domain.version import CORE_API_VERSION
@@ -32,6 +29,11 @@ def _app_version() -> str:
 
 
 def _host_details() -> dict[str, object]:
+    # Deferred to first real use (SDD §3.14): a frozen build shouldn't pay
+    # onnxruntime's import cost just to start the app -- only building an
+    # actual diagnostics bundle (a user-initiated action) needs it.
+    import onnxruntime as ort
+
     return {
         "os": platform.platform(),
         "processor": platform.processor() or platform.machine(),
@@ -67,6 +69,9 @@ class DiagnosticsBundleBuilder:
         self._exiftool = exiftool
 
     async def build(self, *, include_paths: bool) -> bytes:
+        # Deferred to first real use (SDD §3.14): see `_host_details`.
+        import rawpy
+
         manifest = {
             "generated_at": datetime.now(timezone.utc).isoformat(),  # noqa: UP017
             "app_version": _app_version(),

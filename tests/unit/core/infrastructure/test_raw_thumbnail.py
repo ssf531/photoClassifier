@@ -34,7 +34,7 @@ def test_generate_raw_thumbnail_calls_rawpy_with_expected_options(tmp_path: Path
     source = tmp_path / "photo.CR2"
     source.write_bytes(b"not a real raw file")
 
-    with patch("core.infrastructure.raw_thumbnail.rawpy.imread") as mock_imread:
+    with patch("rawpy.imread") as mock_imread:
         mock_imread.return_value = _fake_raw_context(_landscape_array())
         generate_raw_thumbnail(source, max_dimension=100)
 
@@ -46,7 +46,7 @@ def test_generate_raw_thumbnail_returns_upright_image_without_orientation(
 ) -> None:
     source = tmp_path / "photo.NEF"
 
-    with patch("core.infrastructure.raw_thumbnail.rawpy.imread") as mock_imread:
+    with patch("rawpy.imread") as mock_imread:
         mock_imread.return_value = _fake_raw_context(_landscape_array())
         result = generate_raw_thumbnail(source, max_dimension=100)
 
@@ -58,7 +58,7 @@ def test_generate_raw_thumbnail_returns_upright_image_without_orientation(
 def test_generate_raw_thumbnail_applies_explicit_orientation(tmp_path: Path) -> None:
     source = tmp_path / "photo.ARW"
 
-    with patch("core.infrastructure.raw_thumbnail.rawpy.imread") as mock_imread:
+    with patch("rawpy.imread") as mock_imread:
         # stored as if rotated 90 CW needed (orientation 6): stored buffer is
         # portrait (30 wide x 60 tall); corrected output should be landscape.
         stored = np.zeros((60, 30, 3), dtype=np.uint8)
@@ -72,7 +72,7 @@ def test_generate_raw_thumbnail_applies_explicit_orientation(tmp_path: Path) -> 
 def test_generate_raw_thumbnail_downscales_preserving_aspect_ratio(tmp_path: Path) -> None:
     source = tmp_path / "photo.DNG"
 
-    with patch("core.infrastructure.raw_thumbnail.rawpy.imread") as mock_imread:
+    with patch("rawpy.imread") as mock_imread:
         mock_imread.return_value = _fake_raw_context(_landscape_array())
         result = generate_raw_thumbnail(source, max_dimension=20)
 
@@ -83,7 +83,7 @@ def test_generate_raw_thumbnail_downscales_preserving_aspect_ratio(tmp_path: Pat
 def test_generate_raw_thumbnail_produces_decodable_jpeg_bytes(tmp_path: Path) -> None:
     source = tmp_path / "photo.CR3"
 
-    with patch("core.infrastructure.raw_thumbnail.rawpy.imread") as mock_imread:
+    with patch("rawpy.imread") as mock_imread:
         mock_imread.return_value = _fake_raw_context(_landscape_array())
         result = generate_raw_thumbnail(source, max_dimension=100)
 

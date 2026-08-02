@@ -1,8 +1,6 @@
 import asyncio
 from collections.abc import Sequence
 
-import onnxruntime
-
 PREFERRED_EXECUTION_PROVIDER_ORDER = (
     "CUDAExecutionProvider",
     "DmlExecutionProvider",
@@ -26,7 +24,14 @@ def select_execution_provider(
     fallback branch -- it's the same selection landing on the only provider
     present, which is why it runs by default in CI where no GPU exists.
     """
-    providers = list(available) if available is not None else onnxruntime.get_available_providers()
+    if available is not None:
+        providers = list(available)
+    else:
+        # Deferred to first real use (SDD §3.14): a frozen build shouldn't
+        # pay onnxruntime's import cost just to start the app.
+        import onnxruntime
+
+        providers = onnxruntime.get_available_providers()
 
     if override is not None:
         if override not in providers:

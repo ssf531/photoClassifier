@@ -1,7 +1,6 @@
 from io import BytesIO
 from pathlib import Path
 
-import rawpy
 from PIL import Image
 
 from core.infrastructure.raster_thumbnail import ThumbnailResult, apply_orientation, flatten_to_rgb
@@ -17,6 +16,10 @@ def generate_raw_thumbnail(
     (e.g. from the photo's already-normalized metadata) rather than read from
     the file itself.
     """
+    # Deferred to first real use (SDD §3.14): a frozen build shouldn't pay
+    # rawpy/LibRaw's import cost for users who never open a RAW file.
+    import rawpy
+
     with rawpy.imread(str(source_path)) as raw:
         rgb_array = raw.postprocess(use_camera_wb=True, half_size=True, no_auto_bright=False)
 

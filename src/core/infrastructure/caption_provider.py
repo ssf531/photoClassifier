@@ -1,12 +1,13 @@
+from __future__ import annotations
+
 import asyncio
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import httpx
 import numpy as np
-import onnxruntime as ort
 from numpy.typing import NDArray
 from PIL import Image, ImageOps
-from tokenizers import Tokenizer
 
 from core.domain.providers import CaptionResult, ImageRef
 from core.infrastructure.model_acquisition import (
@@ -14,6 +15,10 @@ from core.infrastructure.model_acquisition import (
     is_model_available,
     resolve_model_path,
 )
+
+if TYPE_CHECKING:
+    import onnxruntime as ort
+    from tokenizers import Tokenizer
 
 PROVIDER_ID = "vit-gpt2-image-captioning"
 MODEL_VERSION = "vit-gpt2-image-captioning@1"
@@ -94,6 +99,12 @@ class CaptioningProvider:
             return
         if not self.is_available():
             raise CaptionModelUnavailableError(PROVIDER_ID)
+
+        # Deferred to first real use (SDD §3.14): a frozen build shouldn't
+        # pay onnxruntime/tokenizers' import cost -- nor a user without this
+        # capability's model ever installed -- just to start the app.
+        import onnxruntime as ort
+        from tokenizers import Tokenizer
 
         encoder_path = resolve_model_path(self._cache_dir, PROVIDER_ID, ENCODER_FILENAME)
         decoder_path = resolve_model_path(self._cache_dir, PROVIDER_ID, DECODER_FILENAME)

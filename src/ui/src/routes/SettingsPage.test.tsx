@@ -10,6 +10,8 @@ vi.mock("../api/client", () => ({
   apiClient: { GET: vi.fn(), PATCH: vi.fn() },
 }));
 
+window.__LAUNCH_TOKEN__ = "test-token";
+
 const SETTINGS = {
   library_roots: ["C:/Photos"],
   log_level: "INFO",
@@ -133,5 +135,31 @@ describe("SettingsPage", () => {
         body: { thumbnail_cache_max_mb: 4096 },
       });
     });
+  });
+
+  it("links to the diagnostics bundle without paths by default", async () => {
+    renderPage();
+
+    await waitFor(() => screen.getByText("Create diagnostics bundle"));
+    const link = screen.getByRole("link", {
+      name: "Create diagnostics bundle",
+    }) as HTMLAnchorElement;
+    expect(link.href).toContain("/api/v1/diagnostics/bundle");
+    expect(link.href).toContain("include_paths=false");
+    expect(link.href).toContain("token=test-token");
+  });
+
+  it("includes paths in the diagnostics bundle link once consented", async () => {
+    renderPage();
+
+    await waitFor(() => screen.getByText("Create diagnostics bundle"));
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: /Include library folder paths/ }),
+    );
+
+    const link = screen.getByRole("link", {
+      name: "Create diagnostics bundle",
+    }) as HTMLAnchorElement;
+    expect(link.href).toContain("include_paths=true");
   });
 });

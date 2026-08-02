@@ -28,6 +28,7 @@ from core.infrastructure.collection_repository import (
 from core.infrastructure.copy_export_manager import CopyExportManager
 from core.infrastructure.db.engine import create_engine, create_session_factory
 from core.infrastructure.db.write_connection import WriteConnection
+from core.infrastructure.diagnostics_bundle import DiagnosticsBundleBuilder
 from core.infrastructure.duplicate_repository import (
     DuplicateGroupMemberRepository,
     DuplicateGroupRepository,
@@ -225,20 +226,32 @@ async def compose(**settings_overrides: Any) -> Composition:
 
     # ExifTool is an optional system dependency (SDD §16.4 degraded mode):
     # XMP export simply isn't offered when it's absent, same as HEIC/GPU.
+    # The one process instance is shared with the diagnostics bundle
+    # (SDD §16.5's pinned ExifTool version) rather than spawning a second.
     exiftool_path = find_exiftool()
+    exiftool_process = ExifToolProcess(exiftool_path) if exiftool_path is not None else None
     xmp_export_manager = (
         XmpExportManager(
-            ExifToolProcess(exiftool_path),
+            exiftool_process,
             photo_repo,
             library_root_repo,
             ai_result_repo,
             UserDataRepository(sessions, writer),
             XmpExportRecordRepository(sessions, writer),
         )
-        if exiftool_path is not None
+        if exiftool_process is not None
         else None
     )
     copy_export_manager = CopyExportManager(photo_repo, library_root_repo)
+    diagnostics_bundle_builder = DiagnosticsBundleBuilder(
+        settings_service,
+        photo_repo,
+        library_root_repo,
+        plugin_repo,
+        discovery.manifests,
+        models_dir(),
+        exiftool_process,
+    )
 
     app = create_app(
         scheduler=scheduler,
@@ -257,6 +270,7 @@ async def compose(**settings_overrides: Any) -> Composition:
         xmp_export_manager=xmp_export_manager,
         copy_export_manager=copy_export_manager,
         problems_service=problems_service,
+        diagnostics_bundle_builder=diagnostics_bundle_builder,
     )
 
     return Composition(settings=settings, scheduler=scheduler, app=app)

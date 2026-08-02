@@ -57,6 +57,7 @@ from core.infrastructure.builtin_filters import BUILTIN_FILTER_PRESETS
 from core.infrastructure.collection_manager import CollectionManager, UnknownCollectionError
 from core.infrastructure.copy_export_manager import CopyExportManager
 from core.infrastructure.db.library_models import LibraryRoot
+from core.infrastructure.diagnostics_bundle import DiagnosticsBundleBuilder
 from core.infrastructure.duplicate_review_service import DuplicateReviewService
 from core.infrastructure.export_presets import UnknownPresetError, get_preset
 from core.infrastructure.library_repository import LibraryRootRepository, PhotoRepository
@@ -132,6 +133,7 @@ def create_app(
     xmp_export_manager: XmpExportManager | None = None,
     copy_export_manager: CopyExportManager | None = None,
     problems_service: ProblemsService | None = None,
+    diagnostics_bundle_builder: DiagnosticsBundleBuilder | None = None,
     ui_dist_dir: Path = UI_DIST_DIR,
 ) -> FastAPI:
     launch_token = token or generate_launch_token()
@@ -156,6 +158,7 @@ def create_app(
     app.state.xmp_export_manager = xmp_export_manager
     app.state.copy_export_manager = copy_export_manager
     app.state.problems_service = problems_service
+    app.state.diagnostics_bundle_builder = diagnostics_bundle_builder
 
     @app.get("/health", dependencies=[Depends(require_bearer_token)])
     def health() -> HealthResponse:
@@ -505,6 +508,18 @@ def create_app(
             outcome.path,
             media_type="image/jpeg",
             headers={"ETag": outcome.etag, "Cache-Control": _IMMUTABLE_CACHE_CONTROL},
+        )
+
+    @app.get("/api/v1/diagnostics/bundle", dependencies=[Depends(require_bearer_or_query_token)])
+    async def diagnostics_bundle(request: Request, include_paths: bool = False) -> Response:
+        builder = request.app.state.diagnostics_bundle_builder
+        if builder is None:
+            raise HTTPException(status_code=503, detail="diagnostics bundle not configured")
+        content = await builder.build(include_paths=include_paths)
+        return Response(
+            content=content,
+            media_type="application/zip",
+            headers={"Content-Disposition": 'attachment; filename="diagnostics-bundle.zip"'},
         )
 
     @app.websocket("/api/v1/jobs/progress")

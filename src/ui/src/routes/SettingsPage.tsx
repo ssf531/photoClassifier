@@ -7,6 +7,7 @@ import {
   useUpdatePlugin,
   useUpdateSettings,
 } from "../api/hooks";
+import { getLaunchToken } from "../api/launchToken";
 
 function LibraryRoots(): React.JSX.Element {
   const { data: settings, isLoading } = useSettings();
@@ -149,6 +150,37 @@ function AiModules(): React.JSX.Element {
   );
 }
 
+function Diagnostics(): React.JSX.Element {
+  const [includePaths, setIncludePaths] = useState(false);
+
+  const downloadUrl =
+    `/api/v1/diagnostics/bundle?include_paths=${includePaths}` +
+    `&token=${encodeURIComponent(getLaunchToken())}`;
+
+  return (
+    <section>
+      <h2>Diagnostics</h2>
+      <p>
+        Create a zip with recent logs, versions, capability status, and host
+        details to attach to a bug report.
+      </p>
+      <label>
+        <input
+          type="checkbox"
+          checked={includePaths}
+          onChange={(event) => setIncludePaths(event.target.checked)}
+        />
+        Include library folder paths (these can reveal personal information)
+      </label>
+      <p>
+        <a href={downloadUrl} download="diagnostics-bundle.zip">
+          Create diagnostics bundle
+        </a>
+      </p>
+    </section>
+  );
+}
+
 /**
  * Library roots, enabled AI modules (TASK-069), and GPU/performance
  * controls (TASK-071). Per-capability provider selection is not exposed:
@@ -168,6 +200,7 @@ export function SettingsPage(): React.JSX.Element {
       <LibraryRoots />
       <AiModules />
       <GpuAndPerformance />
+      <Diagnostics />
     </div>
   );
 }

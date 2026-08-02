@@ -50,6 +50,10 @@ class ExifToolProcess:
             stderr=asyncio.subprocess.PIPE,
         )
 
+    async def version(self) -> str:
+        output = await self._execute(["-ver"])
+        return output.decode(errors="replace").strip()
+
     async def read_metadata(self, path: Path) -> dict[str, Any]:
         results = await self.read_metadata_batch([path])
         return results[0] if results else {}

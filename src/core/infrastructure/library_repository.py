@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from core.domain.library import FileStatus
 from core.infrastructure.db.library_models import LibraryRoot, Photo
@@ -14,6 +14,11 @@ class LibraryRootRepository(SqlAlchemyRepository[LibraryRoot]):
         async with self._read_sessions() as session:
             result = await session.execute(select(LibraryRoot).where(LibraryRoot.path == path))
             return result.scalar_one_or_none()
+
+    async def count(self) -> int:
+        async with self._read_sessions() as session:
+            result = await session.execute(select(func.count()).select_from(LibraryRoot))
+            return result.scalar_one()
 
 
 class PhotoRepository(SqlAlchemyRepository[Photo]):
@@ -42,6 +47,13 @@ class PhotoRepository(SqlAlchemyRepository[Photo]):
                 .offset(offset)
             )
             return list(result.scalars().all())
+
+    async def count_by_status(self) -> dict[str, int]:
+        async with self._read_sessions() as session:
+            result = await session.execute(
+                select(Photo.status, func.count()).group_by(Photo.status)
+            )
+            return {status: count for status, count in result.all()}
 
     async def list_active_for_grid(self, *, limit: int, offset: int) -> list[Photo]:
         """Newest-first paging for the Browse UI grid (TASK-065). `id` is a

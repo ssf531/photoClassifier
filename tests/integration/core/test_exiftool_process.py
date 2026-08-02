@@ -19,6 +19,13 @@ async def exiftool() -> AsyncIterator[ExifToolProcess]:
         await process.stop()
 
 
+async def test_version_returns_a_plain_version_string(exiftool: ExifToolProcess) -> None:
+    version = await exiftool.version()
+
+    assert version
+    assert version[0].isdigit()
+
+
 async def test_read_metadata_returns_source_file(tmp_path: Path, exiftool: ExifToolProcess) -> None:
     image = tmp_path / "a.jpg"
     image.write_bytes(b"not a real jpeg but exiftool still reports file info")

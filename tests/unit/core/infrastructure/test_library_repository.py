@@ -101,6 +101,33 @@ async def test_list_active_for_grid_orders_newest_first_and_excludes_non_active(
     assert [p.id for p in page] == [newest.id, middle.id, oldest.id]
 
 
+async def test_library_root_count(
+    repos: tuple[LibraryRootRepository, PhotoRepository],
+) -> None:
+    root_repo, _ = repos
+    assert await root_repo.count() == 0
+
+    await root_repo.create(LibraryRoot(path="C:/Pictures"))
+    await root_repo.create(LibraryRoot(path="C:/OtherPictures"))
+
+    assert await root_repo.count() == 2
+
+
+async def test_photo_count_by_status(
+    repos: tuple[LibraryRootRepository, PhotoRepository],
+) -> None:
+    root_repo, photo_repo = repos
+    root = await root_repo.create(LibraryRoot(path="C:/Pictures"))
+
+    for i in range(3):
+        await photo_repo.create(_photo(root.id, f"active-{i}.jpg", FileStatus.ACTIVE))
+    await photo_repo.create(_photo(root.id, "missing-0.jpg", FileStatus.MISSING))
+
+    counts = await photo_repo.count_by_status()
+
+    assert counts == {FileStatus.ACTIVE.value: 3, FileStatus.MISSING.value: 1}
+
+
 async def test_list_active_for_grid_paginates(
     repos: tuple[LibraryRootRepository, PhotoRepository],
 ) -> None:

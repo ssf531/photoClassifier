@@ -72,3 +72,17 @@ jobs:
         with:
           name: core-windows
           path: dist/core
+
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          & $iscc packaging\inno\core.iss
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PhotoIntelligenceSetup-windows
+          path: packaging/inno/Output/*.exe

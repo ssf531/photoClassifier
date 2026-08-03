@@ -7,6 +7,11 @@ See `Local_AI_Photo_Intelligence_PRD_v2.md`, `Local_AI_Photo_Intelligence_SDD_v1
 `Architecture_Decision_Records_v1.md`, and `AI_Development_Guide_v1.md` for the full
 design. Read the AI Development Guide before making changes.
 
+- End users: [`docs/user/`](docs/user/README.md)
+- Writing a new AI capability provider: [`docs/plugin-authoring/`](docs/plugin-authoring/README.md)
+- Contributing to this repo: [`docs/contributing/`](docs/contributing/README.md)
+- Release status: [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md)
+
 ## Bootstrap
 
 Requires Python 3.12+, Node.js 20+, and [ExifTool](https://exiftool.org/) on `PATH`.

@@ -1,0 +1,74 @@
+name: Package - Windows core (PyInstaller)
+
+on:
+  workflow_dispatch: {}
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-frozen-core:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: src/ui/package-lock.json
+
+      - name: Build UI static assets
+        working-directory: src/ui
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install core (with packaging extras)
+        run: pip install -e ".[packaging]"
+
+      - name: Build frozen executable
+        run: pyinstaller packaging/pyinstaller/core.spec --distpath dist --workpath build --noconfirm
+
+      - name: Smoke test the frozen build
+        shell: pwsh
+        run: |
+          $process = Start-Process -FilePath "dist/core/core.exe" -ArgumentList "--no-window" `
+            -RedirectStandardOutput "core-stdout.log" -RedirectStandardError "core-stderr.log" -PassThru
+          try {
+            $token = $null
+            $deadline = (Get-Date).AddSeconds(30)
+            while ((Get-Date) -lt $deadline) {
+              if (Test-Path "core-stdout.log") {
+                $match = Select-String -Path "core-stdout.log" -Pattern "launch token: (\S+)" -ErrorAction SilentlyContinue
+                if ($match) { $token = $match.Matches[0].Groups[1].Value; break }
+              }
+              Start-Sleep -Milliseconds 200
+            }
+            if (-not $token) { throw "core.exe never printed a launch token within 30s" }
+
+            $deadline = (Get-Date).AddSeconds(30)
+            $ok = $false
+            while ((Get-Date) -lt $deadline) {
+              try {
+                $response = Invoke-WebRequest -Uri "http://127.0.0.1:8756/health" `
+                  -Headers @{ Authorization = "Bearer $token" } -UseBasicParsing
+                if ($response.StatusCode -eq 200) { $ok = $true; break }
+              } catch {
+                Start-Sleep -Milliseconds 200
+              }
+            }
+            if (-not $ok) { throw "core.exe never became healthy within 30s" }
+            Write-Host "Frozen build is healthy: $($response.Content)"
+          } finally {
+            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+          }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: core-windows
+          path: dist/core

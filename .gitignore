@@ -8,6 +8,7 @@ __pycache__/
 .ruff_cache/
 build/
 dist/
+packaging/inno/Output/
 
 # Node / UI
 src/ui/node_modules/

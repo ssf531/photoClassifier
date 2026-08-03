@@ -35,6 +35,9 @@ dev = ["ruff>=0.5", "mypy>=1.10", "pytest>=8.2", "pytest-asyncio>=0.23", "import
 # HEIC/HEIF is an optional component (ADR-0012): detected at startup, degrades
 # to a placeholder thumbnail when absent rather than being a hard dependency.
 heic = ["pillow-heif>=0.15"]
+# Release-build tooling (SDD §3.14): only needed to produce a frozen
+# executable, never at app runtime, so it stays out of `dev`.
+packaging = ["pyinstaller>=6.10"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

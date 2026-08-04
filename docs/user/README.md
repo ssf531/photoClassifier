@@ -35,6 +35,8 @@ capability.
   matches when more than one mode applies.
 - **Smart filters** — one-click built-in filters for screenshots, blurry
   photos, duplicates, and photos already in a duplicate group.
+- **Recommendations** — a dedicated page grouping photos worth acting on:
+  screenshots, low-quality shots, and near-duplicates.
 - **Collections** — manual collections plus rule-based smart collections
   that auto-update as your library changes.
 - **Duplicate review** — review detected duplicate groups, see the
@@ -50,7 +52,9 @@ capability.
   with retry and ignore actions, instead of silently disappearing.
 - **Plugin management** — see which AI capabilities (captioning, tagging,
   embeddings, quality, duplicate detection) are available and enable/disable
-  them.
+  them. Enabling one shows the permissions it declares (every built-in
+  provider declares `read:image_bytes`) and asks you to approve before it
+  turns on.
 - **Diagnostics bundle** — from Settings, generate a zip of logs, redacted
   config, versions, and capability status to attach to a bug report. File
   paths are included only if you explicitly opt in, since paths are

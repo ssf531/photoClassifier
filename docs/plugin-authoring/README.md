@@ -1,10 +1,16 @@
 # Writing an AI capability provider
 
 v1 ships exactly one "plugin host": in-process `Protocol`-typed providers
-(ADR-0004). There is no subprocess/RPC transport, no third-party plugin
-loading, and no permission-prompt UI — v1's plugin system exists to make
-each capability swappable, not to run untrusted third-party code. Out-of-process hosting (TASK-039) and a
-stable gRPC contract (TASK-038) are both deferred to v2.
+(ADR-0004). There is no subprocess/RPC transport and no third-party plugin
+loading — v1's plugin system exists to make each capability swappable, not
+to run untrusted third-party code. There *is* a permission-approval step
+in the Plugins UI (`PluginsPage.tsx`): enabling a plugin that declares
+`permissions` in its manifest shows what it's asking for and requires an
+explicit Approve click first (SDD §8.3) — every built-in provider today
+declares `permissions = ["read:image_bytes"]`, so this dialog appears on
+every enable action, even though nothing untrusted is actually running yet.
+Out-of-process hosting (TASK-039) and a stable gRPC contract (TASK-038)
+are both deferred to v2.
 
 ## The moving parts
 
